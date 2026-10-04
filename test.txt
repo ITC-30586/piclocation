@@ -1,0 +1,1017 @@
+'
+'
+'
+Imports Npgsql
+Imports System.IO
+Imports System.Xml
+
+Module Module1
+
+    'PostgreSQL PATH
+    Dim APPTH As String
+
+    'データ取得元
+    'Dim csvForder As String
+
+    '処理用一時保管先
+    Dim TForder As String
+    Dim T5 As String
+
+    'INI
+    Dim DBIP As String                                'DB IPアドレス           :133.222.186.64(開発環境)
+    Dim DBPO As String                              'DB ポート番号           :25432
+    Dim DBNM As String                              'DB データベース名       :dbseizou
+
+    Dim DHIP As String                               'DB IPアドレス           :熱処理進捗
+    Dim DHPO As String                              'DB ポート番号           :15432
+    Dim DHNM As String                              'DB データベース名       :htreatment
+
+    Dim SD As Integer                               'ファイル取得期間 取得制限
+
+    Dim cn1 As New NpgsqlConnection
+    Dim cn2 As New NpgsqlConnection
+
+    Dim cn8 As New NpgsqlConnection
+    Dim cn9 As New NpgsqlConnection
+
+    '進捗フラグ
+    Dim prflg As Boolean                            '進捗フラグ
+
+    '進捗確認用
+    Dim procsv As Boolean = False
+
+    Sub Main()
+
+        '設定情報取込
+        Call Initialization()
+        'DB_Connect 
+        Call DB_Connect()
+        Call DB_Connect2()
+
+        'データ処理用一時保管フォルダ有無確認
+        ' 指定したフォルダがあるかどうか確認する
+        If System.IO.Directory.Exists(TForder) Then
+        Else
+            System.IO.Directory.CreateDirectory(TForder)
+        End If
+
+        'フォルダを別々に分ける フォルダ内を初期化
+        'N5
+        T5 = TForder & "\N5"
+        If System.IO.Directory.Exists(T5) Then
+        Else
+            System.IO.Directory.CreateDirectory(T5)
+        End If
+        Dim arrFiles2() As String = System.IO.Directory.GetFiles(T5)
+        '全ファイル削除 
+        For Each strFile As String In arrFiles2
+            System.IO.File.Delete(strFile)
+        Next
+
+        'trace5
+        '刃具関係 + MH
+        'CSV処理
+        Call DataMake01()
+
+        If prflg = True Then
+            Call DB_Import01()
+
+            '品番関連 procedure
+            Call DataMake041()
+            Call DataMake051()
+
+        End If
+
+    End Sub
+
+    'INI.xml
+    '必要変数取得 INI.XML
+    Private Sub Initialization()
+        Try
+            'INI.XMLから設定取得
+            Dim MyPath As String = My.Application.Info.DirectoryPath
+            Dim iniFileName As String = "INI.xml"
+            If MyPath.EndsWith("\") = False Then
+                MyPath &= "\"
+            End If
+            iniFileName = MyPath & iniFileName
+
+            '指定したXMLファイルの読み込み
+            Dim xmlDoc As New System.Xml.XmlDocument
+            xmlDoc.Load(iniFileName)
+            Dim rootElement As System.Xml.XmlElement = xmlDoc.DocumentElement
+            Dim node As System.Xml.XmlNodeList = rootElement.GetElementsByTagName("db_ip")
+
+            '指定したタグが存在するか？
+            If node.Count > 0 Then
+                DBIP = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("db_port")
+            If node.Count > 0 Then
+                DBPO = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("db_name")
+            If node.Count > 0 Then
+                DBNM = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("db_backf")
+            If node.Count > 0 Then
+                TForder = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("app_path")
+            If node.Count > 0 Then
+                APPTH = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("s_date")
+            If node.Count > 0 Then
+                SD = node.Item(0).InnerText
+            End If
+
+            '熱処理進捗
+            node = rootElement.GetElementsByTagName("dbh_ip")
+            If node.Count > 0 Then
+                DHIP = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("dbh_port")
+            If node.Count > 0 Then
+                DHPO = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("dbh_name")
+            If node.Count > 0 Then
+                DHNM = node.Item(0).InnerText
+            End If
+
+        Catch ex As Exception
+            Call ErrLOG("Initialization", "")
+        End Try
+    End Sub
+    'エラーログを書き出す
+    Public Sub ErrLOG(ByVal C1 As String, ByVal C2 As String)
+        Dim FileName As String
+        Dim WS As IO.StreamWriter
+
+        Try
+            FileName = My.Application.Info.DirectoryPath & "\Errlog.txt"
+            WS = IO.File.AppendText(FileName)
+            WS.WriteLine(C1 & ":" & C2 & ":" & Format(Now, "yyyy/MM/dd HH:mm:ss"))
+            WS.Close()
+        Catch ex As Exception
+            End
+        End Try
+    End Sub
+
+    '進捗確認用
+    Public Sub ProcessLOG(ByVal C1 As String, ByVal C2 As String)
+        Dim FileName As String
+        Dim WS As IO.StreamWriter
+
+        Try
+            FileName = My.Application.Info.DirectoryPath & "\proc.txt"
+            WS = IO.File.AppendText(FileName)
+            WS.WriteLine(C1 & ":" & C2 & ":" & Format(Now, "yyyy/MM/dd HH:mm:ss"))
+            WS.Close()
+        Catch ex As Exception
+            End
+        End Try
+    End Sub
+
+    Private Sub DB_Connect()
+        Dim ConStr As String
+        Try
+            'DB登録
+            ConStr = ("Server=" & DBIP & ";Port=" & DBPO.ToString & ";User id=postgres;Password=postgres;Database=" & DBNM.ToString & ";")
+            cn1.ConnectionString = ConStr
+            cn2.ConnectionString = ConStr
+            cn1.Open()
+            cn1.Close()
+            'Connect OK
+
+        Catch ex As Exception
+            Call ErrLOG("DB_Connect", "postgresql")
+            End
+        End Try
+    End Sub
+
+    Private Sub DB_Connect2()
+        Dim ConStr As String
+        Try
+            'DB登録
+            ConStr = ("Server=" & DHIP & ";Port=" & DHPO.ToString & ";User id=postgres;Password=postgres;Database=" & DHNM.ToString & ";")
+            cn8.ConnectionString = ConStr
+            cn9.ConnectionString = ConStr
+            cn8.Open()
+            cn8.Close()
+            'Connect OK
+
+        Catch ex As Exception
+            Call ErrLOG("DB_Connect", "postgresql")
+        End Try
+    End Sub
+    'CSV取得1
+    Private Sub DataMake01()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim Num As Integer
+        Dim rs As NpgsqlDataReader
+
+        Dim SDate As String
+
+        Try
+
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            'init_folder workno=1 有効のみ 対象フォルダ検索
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM init_folder "
+            strSQL = strSQL + "WHERE workno='1' AND vif='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+
+            If Num = 0 Then
+                '有効フォルダなし
+                prflg = False
+                Exit Sub
+
+            Else
+                '取得対象日設定
+                SDate = DateAdd(DateInterval.Day, SD * (-1), Now())
+                prflg = True
+
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM init_folder "
+            strSQL = strSQL + "WHERE workno='1' AND vif='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            While (rs.Read())
+
+                '進捗確認用
+                If procsv = True Then
+                    Call ProcessLOG("DataMake01", rs("loc_folder"))
+                End If
+
+                'BAT処理 CSV取込
+                Call DataMake02K(rs("loc_folder"), SDate)
+
+            End While
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake01", "")
+        End Try
+
+    End Sub
+
+    'SEDコマンドを使用しないで先頭3行削除作業
+    Private Sub DataMake02K(FOL As String, SDate As String)
+
+        Dim KDate As String                             'ファイル更新日時
+        Dim StrF As String = String.Empty
+        Dim sr As System.IO.StreamReader = Nothing
+        Dim sw As System.IO.StreamWriter = Nothing
+
+        Dim jCnt As Integer = 0
+
+        'Shift-JISエンコードで変換できない場合は「?」文字の設定'
+        Dim encFallBack As System.Text.DecoderReplacementFallback = New System.Text.DecoderReplacementFallback("?")
+        Dim enc As System.Text.Encoding = System.Text.Encoding.GetEncoding("shift_jis", System.Text.EncoderFallback.ReplacementFallback, encFallBack)
+
+        Dim r As New System.Random(12345)
+
+        For Each FName In IO.Directory.GetFiles(FOL, "*.csv", SearchOption.AllDirectories)
+
+            'ファイル更新日取得
+            KDate = System.IO.File.GetLastWriteTime(FName)
+
+            If KDate > SDate Then
+
+                Dim rm As Integer = r.Next(99999999)
+
+
+                'ファイル名のみから別名設定
+                StrF = T5 & "\" & CStr(rm) & "_" & System.IO.Path.GetFileName(FName)
+                'StrF = T5 & "\" & Format(Now, "HHmmss") & "_" & System.IO.Path.GetFileName(FName)
+
+                'originalファイルを1-3行削除
+                sr = New System.IO.StreamReader(FName, enc)
+
+                '一時ファイルを作成する
+                Dim tmpPath As String = System.IO.Path.GetTempFileName()
+                '一時ファイルを書き込みで開く
+                sw = New System.IO.StreamWriter(StrF, True, enc)
+
+                '先頭フラグON 
+                Dim blnFirstLine As Boolean = True
+                'テキストを一行ずつ読込
+                While sr.Peek() > -1
+                    '一行読込
+                    Dim line As String = sr.ReadLine()
+                    '先頭行1-3行目スキップ
+                    If blnFirstLine = True Then
+                        '先頭フラグONの場合、OFFしてスキップ
+                        If jCnt > 1 Then
+                            blnFirstLine = False
+                        End If
+
+                        jCnt = jCnt + 1
+                        Continue While
+                    End If
+                    '一時ファイル書込
+                    sw.WriteLine(line)
+                End While
+                '閉じる
+                sr.Close()
+                sw.Close()
+                sr = Nothing
+                sw = Nothing
+
+                jCnt = 0
+
+                'temp削除
+                System.IO.File.Delete(tmpPath)
+                '元ファイル削除 削除する必要なし
+                'IO.File.Delete(FName)
+
+            End If
+        Next
+
+    End Sub
+
+    'CSV取り込み
+    Private Sub DB_Import01()
+
+        Dim proc As New Process
+        Dim ImportFileName As String
+
+        Dim i As Integer
+        Dim FN() As String
+        Dim dft As DateTime = DateTime.Parse(Now)
+        Dim j As Integer
+
+        Dim l As Long
+
+        Try
+            'フォルダ内ファイル有無確認
+            i = 0
+            For Each strFilePath In System.IO.Directory.GetFiles(T5, "*.csv")
+                ReDim Preserve FN(i)
+
+                FN(i) = System.IO.Path.GetFileName(strFilePath)
+                i = i + 1
+                '    End If
+            Next
+
+            '対象ファイル処理
+            For j = 0 To i - 1
+
+                'ファイルサイズチェック
+                'FileInfo の新しいインスタンスを生成する 
+                Dim fi As New System.IO.FileInfo(T5 & "\" & FN(j))
+                'ファイルのサイズを取得 
+                l = fi.Length
+                '0KB処理しない
+                If l <> 0 Then
+
+                    ImportFileName = T5 & "\" & FN(j)
+                    '処理用のファイル名で処理 
+                    proc.StartInfo.FileName = APPTH & "\psql.exe"
+                    proc.StartInfo.Arguments = " -h " & DBIP & " -p 25432 -U postgres -d " & DBNM & " -c " & Chr(34) & "\copy trace5_temp FROM " & Chr(39) & ImportFileName & Chr(39) & " with csv ;"
+                    'proc.StartInfo.Arguments = " -h 192.168.23.147 -p 25432 -U postgres -d vmdb -c " & Chr(34) & "\copy dataupdate FROM " & Chr(39) & ImportFileName & Chr(39) & " with csv;"
+                    proc.StartInfo.UseShellExecute = False
+                    proc.StartInfo.CreateNoWindow = True
+                    proc.Start()
+                    proc.WaitForExit()
+                    proc.Close()
+                    'proc.Dispose()
+                    'proc = Nothing
+                    System.Threading.Thread.Sleep(50)
+
+                End If
+
+            Next
+
+            '取込済みファイル削除 
+            For j = 0 To i - 1
+
+                '進捗確認用
+                If procsv = True Then
+                    Call ProcessLOG("DataImport01", T5 & "\" & FN(j))
+                End If
+                'TEMP_CSV
+                IO.File.Delete(T5 & "\" & FN(j))
+
+            Next
+
+        Catch ex As Exception
+            Call ErrLOG("DB_Import01", "")
+        End Try
+
+    End Sub
+
+    '刃具番号用テーブル作成
+    Private Sub DataMake03H()
+
+        Dim cm As NpgsqlCommand
+        Dim cm2 As NpgsqlCommand
+        Dim strSQL As String
+        Dim Num As Integer
+        Dim Num2 As Integer
+        Dim rs As NpgsqlDataReader
+
+        Try
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            '対象刃具番号一覧作成
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data "
+            strSQL = strSQL + "WHERE cflg='4' AND (d6<>'' AND d6<>'00000' )"
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+
+            If Num = 0 Then
+                Exit Sub
+            Else
+
+                '重複チェック機能追加 
+                strSQL = ""
+                strSQL = strSQL + "SELECT * FROM trace5_data "
+                strSQL = strSQL + "WHERE cflg='4' AND (d6<>'' AND d6<>'00000' )"
+                cn1.Open()
+                cm = New NpgsqlCommand
+                cm.Connection = cn1
+                cm.CommandText = strSQL
+                rs = cm.ExecuteReader
+                While (rs.Read())
+
+                    '重複チェック
+                    strSQL = ""
+                    strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data_hagu "
+                    strSQL = strSQL + "WHERE d5='" & rs("d5").ToString & "' "
+                    strSQL = strSQL + "AND cflg='4' AND (d6<>'' AND d6<>'00000' )"
+                    cn2.Open()
+                    cm2 = New NpgsqlCommand
+                    cm2.Connection = cn2
+                    cm2.CommandText = strSQL
+                    Num2 = cm2.ExecuteScalar
+                    cn2.Close()
+                    If Num2 = 0 Then
+
+                        '追加対象レコード
+                        strSQL = ""
+                        strSQL = strSQL + "INSERT INTO trace5_data_hagu "
+                        strSQL = strSQL + "SELECT * FROM trace5_data "
+                        strSQL = strSQL + "WHERE d5='" & rs("d5").ToString & "' "
+                        strSQL = strSQL + "AND cflg='4' AND (d6<>'' AND d6<>'00000' )"
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        cm2.ExecuteNonQuery()
+                        cn2.Close()
+
+                        'trace5_data_hagu2へ登録必要情報書き込み trace5_data_hagu2  (d5,cflg)
+                        strSQL = ""
+                        strSQL = strSQL + "INSERT INTO trace5_data_hagu2("
+                        strSQL = strSQL + "d5,"
+                        strSQL = strSQL + "cflg"
+                        strSQL = strSQL + ")VALUES("
+                        strSQL = strSQL + "'" & rs("d5").ToString & "',"
+                        strSQL = strSQL + "" & "4" & ""
+                        strSQL = strSQL + ")"
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        cm2.ExecuteNonQuery()
+                        cn2.Close()
+
+                    End If
+                    cn2.Close()
+                End While
+                cn1.Close()
+
+                'trace5_data　フラグ更新
+                strSQL = ""
+                strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data_hagu2 "
+                cn1.Open()
+                cm = New NpgsqlCommand
+                cm.Connection = cn1
+                cm.CommandText = strSQL
+                Num = cm.ExecuteScalar
+                cn1.Close()
+
+                If Num = 0 Then
+                    Exit Sub
+                Else
+
+                    strSQL = ""
+                    strSQL = strSQL + "SELECT * FROM trace5_data_hagu2 "
+                    cn1.Open()
+                    cm = New NpgsqlCommand
+                    cm.Connection = cn1
+                    cm.CommandText = strSQL
+                    rs = cm.ExecuteReader
+                    While (rs.Read())
+
+                        strSQL = ""
+                        strSQL = strSQL + "UPDATE trace5_data SET cflg='5' "
+                        strSQL = strSQL + "WHERE d5='" & rs("d5").ToString & "' AND cflg='4' "
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        cm2.ExecuteNonQuery()
+                        cn2.Close()
+
+                        '処理済みデータ処理
+                        strSQL = ""
+                        strSQL = strSQL + "UPDATE trace5_data_hagu2 SET cflg='5' "
+                        strSQL = strSQL + "WHERE d5='" & rs("d5").ToString & "' AND cflg='4' "
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        cm2.ExecuteNonQuery()
+                        cn2.Close()
+
+                    End While
+                    cn1.Close()
+
+                    '削除
+                    strSQL = ""
+                    strSQL = strSQL + "DELETE FROM  trace5_data_hagu2 "
+                    strSQL = strSQL + "WHERE cflg='5'"
+                    strSQL = strSQL + ""
+                    cn1.Open()
+                    cm = New NpgsqlCommand
+                    cm.Connection = cn1
+                    cm.CommandText = strSQL
+                    cm.ExecuteNonQuery()
+                    cn1.Close()
+
+                End If
+
+
+
+
+                ''対象データ移行
+                'strSQL = ""
+                'strSQL = strSQL + "INSERT INTO trace5_data_hagu "
+                'strSQL = strSQL + "SELECT * FROM trace5_data "
+                'strSQL = strSQL + "WHERE cflg='4' AND (d6<>'' AND d6<>'00000' )"
+                'cn1.Open()
+                'cm = New NpgsqlCommand
+                'cm.Connection = cn1
+                'cm.CommandText = strSQL
+                'cm.ExecuteNonQuery()
+                'cn1.Close()
+
+                ''取込全データ 作業フラグ更新
+                'strSQL = ""
+                'strSQL = strSQL + "UPDATE trace5_data SET cflg='5' "
+                'strSQL = strSQL + "WHERE cflg='4' "
+                'cn1.Open()
+                'cm = New NpgsqlCommand
+                'cm.Connection = cn1
+                'cm.CommandText = strSQL
+                'cm.ExecuteNonQuery()
+                'cn1.Close()
+
+            End If
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake03H", "")
+        End Try
+
+    End Sub
+
+    '刃具番号を付与する
+    'Private Sub DataMake03()
+
+    '    Dim Hagu_no() As String         '対象刃具番号一覧
+    '    Dim Hagu_no1() As String        'ライン情報(d3)
+    '    Dim Hagu_no2() As String        '工程情報(d4)
+
+    '    Dim HN As String                 '刃具番号
+
+    '    Dim HC As Integer                '刃具カウント
+    '    Dim HCB As Integer                '刃具カウントひとつまえ
+    '    Dim HCS As Integer              '刃具カウントスタート
+
+    '    Dim cm As NpgsqlCommand
+    '    Dim strSQL As String
+    '    Dim rs As NpgsqlDataReader
+    '    Dim Num As Integer
+    '    Dim i As Integer
+    '    Dim j As Integer
+    '    Dim k As Integer
+
+    '    Try
+    '        If cn1.State = ConnectionState.Open = True Then
+    '            cn1.Close()
+    '        End If
+
+    '        '対象刃具番号一覧作成
+    '        strSQL = ""
+    '        strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data "
+    '        strSQL = strSQL + "WHERE cflg='0' AND (d6<>'' AND d6<>'00000' )"
+    '        '2022/10/03
+    '        'strSQL = strSQL + "WHERE cflg='0' AND d6<>'' "
+    '        cn1.Open()
+    '        cm = New NpgsqlCommand
+    '        cm.Connection = cn1
+    '        cm.CommandText = strSQL
+    '        Num = cm.ExecuteScalar
+    '        cn1.Close()
+
+    '        If Num = 0 Then
+    '            Exit Sub
+    '        Else
+    '            i = 0
+    '        End If
+
+    '        strSQL = ""
+    '        strSQL = strSQL + "SELECT d3,d4,d6 FROM "
+    '        strSQL = strSQL + "(SELECT d3,d4,d6 FROM trace5_data WHERE cflg='0' AND (d6<>'' AND d6<>'00000') ORDER BY d3,d4,d6 ) AS temp1 "
+    '        'strSQL = strSQL + "(SELECT d3,d4,d6 FROM trace5_data WHERE cflg='0' AND d6<>''  ORDER BY d3,d4,d6 ) AS temp1 "
+    '        strSQL = strSQL + "GROUP by d3,d4,d6 "
+
+    '        cn1.Open()
+    '        cm = New NpgsqlCommand
+    '        cm.Connection = cn1
+    '        cm.CommandText = strSQL
+    '        rs = cm.ExecuteReader
+    '        While (rs.Read())
+
+    '            ReDim Preserve Hagu_no(i)
+    '            ReDim Preserve Hagu_no1(i)
+    '            ReDim Preserve Hagu_no2(i)
+
+    '            Hagu_no(i) = rs("d6").ToString
+    '            Hagu_no1(i) = rs("d3").ToString
+    '            Hagu_no2(i) = rs("d4").ToString
+
+    '            i = i + 1
+    '        End While
+    '        cn1.Close()
+
+
+    '        '刃具一覧から順に処理する
+    '        For j = 0 To i - 1
+
+    '            '前回最終刃具番号チェック
+    '            strSQL = ""
+    '            strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data "
+    '            strSQL = strSQL + "WHERE cflg='1' AND d6='" & Hagu_no(j) & "' "
+    '            strSQL = strSQL + "AND d3='" & Hagu_no1(j) & "' AND d4='" & Hagu_no2(j) & "' "
+    '            cn1.Open()
+    '            cm = New NpgsqlCommand
+    '            cm.Connection = cn1
+    '            cm.CommandText = strSQL
+    '            Num = cm.ExecuteScalar
+    '            cn1.Close()
+
+    '            If Num <> 0 Then
+    '                strSQL = ""
+    '                strSQL = strSQL + "SELECT * FROM trace5_data "
+    '                strSQL = strSQL + "WHERE cflg='1' AND d6='" & Hagu_no(j) & "' "
+    '                strSQL = strSQL + "AND d3='" & Hagu_no1(j) & "' AND d4='" & Hagu_no2(j) & "' "
+    '                strSQL = strSQL + "ORDER BY new_eno DESC"
+    '                cn1.Open()
+    '                cm = New NpgsqlCommand
+    '                cm.Connection = cn1
+    '                cm.CommandText = strSQL
+    '                rs = cm.ExecuteReader
+    '                rs.Read()
+
+    '                HN = rs("new_eno").ToString
+    '                HCB = CInt(rs("d7").ToString)
+
+    '                rs.Close()
+    '                cn1.Close()
+
+    '                k = 1
+
+    '            Else
+    '                '該当データなし
+    '                k = 0
+    '                HN = ""
+
+    '            End If
+
+    '            '新規データ分
+    '            strSQL = ""
+    '            strSQL = strSQL + "SELECT * FROM trace5_data "
+    '            strSQL = strSQL + "WHERE cflg='0' AND d6='" & Hagu_no(j) & "' "
+    '            strSQL = strSQL + "AND d3='" & Hagu_no1(j) & "' AND d4='" & Hagu_no2(j) & "' "
+    '            strSQL = strSQL + "ORDER BY d1,d2 "
+    '            cn1.Open()
+    '            cm = New NpgsqlCommand
+    '            cm.Connection = cn1
+    '            cm.CommandText = strSQL
+    '            rs = cm.ExecuteReader
+    '            While (rs.Read())
+
+    '                If k = 0 Then
+    '                    '先頭行刃具番号決定
+    '                    HN = rs("d4").ToString + Strings.Right("0000" + rs("d6").ToString, 4) + rs("d1").ToString
+    '                    HC = CInt(rs("d7").ToString)
+
+    '                    strSQL = ""
+    '                    strSQL = strSQL + "UPDATE trace5_data SET new_eno='" & HN & "',cflg='1' ,cdate='" & Now() & "' "
+    '                    strSQL = strSQL + "WHERE d5 ='" & rs("d5").ToString & "' "
+    '                    cn2.Open()
+    '                    cm = New NpgsqlCommand
+    '                    cm.Connection = cn2
+    '                    cm.CommandText = strSQL
+    '                    cm.ExecuteNonQuery()
+    '                    cn2.Close()
+
+    '                    HCB = HC
+    '                    HCS = HC
+
+    '                Else
+
+    '                    HC = rs("d7").ToString
+
+    '                    If HC > HCS Then
+
+    '                        strSQL = ""
+    '                        strSQL = strSQL + "UPDATE trace5_data SET new_eno='" & HN & "',cflg='1' ,cdate='" & Now() & "' "
+    '                        strSQL = strSQL + "WHERE d5 ='" & rs("d5").ToString & "' "
+    '                        cn2.Open()
+    '                        cm = New NpgsqlCommand
+    '                        cm.Connection = cn2
+    '                        cm.CommandText = strSQL
+    '                        cm.ExecuteNonQuery()
+    '                        cn2.Close()
+
+    '                    Else
+    '                        '別の刃具番号管理へ
+
+    '                        HN = rs("d4").ToString + Strings.Right("0000" + rs("d6").ToString, 4) + rs("d1").ToString
+    '                        HC = rs("d7").ToString
+    '                        HCS = rs("d7").ToString
+
+    '                        If HN = "" Then
+    '                            Exit Sub
+    '                        End If
+
+    '                        strSQL = ""
+    '                        strSQL = strSQL + "UPDATE trace5_data SET new_eno='" & HN & "',cflg='1' "
+    '                        strSQL = strSQL + "WHERE d5 ='" & rs("d5").ToString & "' "
+    '                        cn2.Open()
+    '                        cm = New NpgsqlCommand
+    '                        cm.Connection = cn2
+    '                        cm.CommandText = strSQL
+    '                        cm.ExecuteNonQuery()
+    '                        cn2.Close()
+
+    '                    End If
+
+    '                    HCB = HC
+    '                End If
+
+    '                k = k + 1
+    '            End While
+    '            cn1.Close()
+
+    '        Next
+
+    '        '刃具番号 00000 作業フラグ更新
+    '        strSQL = ""
+    '        strSQL = strSQL + "UPDATE trace5_data SET cflg='1' "
+    '        strSQL = strSQL + "WHERE d6 ='00000' AND cflg='0' "
+    '        cn1.Open()
+    '        cm = New NpgsqlCommand
+    '        cm.Connection = cn1
+    '        cm.CommandText = strSQL
+    '        cm.ExecuteNonQuery()
+    '        cn1.Close()
+
+    '    Catch ex As Exception
+    '        Call ErrLOG("DataMake03", "")
+    '    End Try
+
+    'End Sub
+
+
+    '品番情報など cflg=1 対象
+    Private Sub DataMake041()
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+
+        Try
+            'procedure 化
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT trace5_data_make01();"
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            cm.ExecuteNonQuery()
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake041", "")
+        End Try
+
+    End Sub
+
+    '品番更新
+    Private Sub DataMake051()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+
+        Try
+            'procedure 化
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT trace5_data_make02();"
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            cm.ExecuteNonQuery()
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake051", "")
+        End Try
+
+    End Sub
+
+    '品番zzzzz-zzz 対応 未使用
+    'master_hinban1に登録完了した場合
+    Private Sub DataMake06()
+
+        Dim cm As NpgsqlCommand
+        Dim cm2 As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+        Dim rs2 As NpgsqlDataReader
+        Dim Num As Integer
+
+        Dim D_d8 As String
+        Dim D_d13 As String
+        Dim D_hinban As String
+
+        Try
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+            If cn2.State = ConnectionState.Open = True Then
+                cn2.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM trace5_data "
+            strSQL = strSQL + "WHERE d21='ZZZZZ-ZZZ' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+
+            If Num = 0 Then
+                Exit Sub
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT d8,d13 FROM trace5_data "
+            strSQL = strSQL + "WHERE d21='ZZZZZ-ZZZ' "
+            strSQL = strSQL + "GROUP BY d8,d13 "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            While (rs.Read())
+                D_d8 = rs("d8").ToString
+                D_d13 = rs("d13").ToString
+
+                'master_hinban1 から検索
+                'skflg='0' 素材から検索 
+                strSQL = ""
+                strSQL = strSQL + "SELECT COUNT(*) FROM master_hinban1 "
+                strSQL = strSQL + "WHERE bname='" & D_d13 & "' AND hinban LIKE '" & D_d8 & "%' "
+                strSQL = strSQL + "AND skflg='0' "
+                cn2.Open()
+                cm2 = New NpgsqlCommand
+                cm2.Connection = cn2
+                cm2.CommandText = strSQL
+                Num = cm2.ExecuteScalar
+                cn2.Close()
+
+                If Num > 0 Then
+                    '素材品番情報更新
+                    strSQL = ""
+                    strSQL = strSQL + "SELECT hinban FROM master_hinban1 "
+                    strSQL = strSQL + "WHERE bname='" & D_d13 & "' AND hinban LIKE '" & D_d8 & "%' "
+                    strSQL = strSQL + "AND skflg='0' "
+                    cn2.Open()
+                    cm2 = New NpgsqlCommand
+                    cm2.Connection = cn2
+                    cm2.CommandText = strSQL
+                    rs2 = cm2.ExecuteReader
+                    rs2.Read()
+                    D_hinban = rs2("hinban").ToString
+                    rs2.Close()
+                    cn2.Close()
+
+                    strSQL = ""
+                    strSQL = strSQL + "UPDATE trace5_data SET d21='" & D_hinban & "' "
+                    strSQL = strSQL + "WHERE d13='" & D_d13 & "' AND d8 = '" & D_d8 & "' "
+                    cn2.Open()
+                    cm2 = New NpgsqlCommand
+                    cm2.Connection = cn2
+                    cm2.CommandText = strSQL
+                    cm2.ExecuteNonQuery()
+                    cn2.Close()
+
+                    '加工品番情報更新
+                    '有無チェック
+                    strSQL = ""
+                    strSQL = strSQL + "SELECT count(*) FROM master_hinban1 "
+                    strSQL = strSQL + "WHERE bname='" & D_d13 & "' AND hinban LIKE '" & D_d8 & "%' "
+                    strSQL = strSQL + "AND skflg='1' "
+                    cn2.Open()
+                    cm2 = New NpgsqlCommand
+                    cm2.Connection = cn2
+                    cm2.CommandText = strSQL
+                    Num = cm2.ExecuteScalar
+                    cn2.Close()
+
+                    If Num > 0 Then
+                        strSQL = ""
+                        strSQL = strSQL + "SELECT hinban FROM master_hinban1 "
+                        strSQL = strSQL + "WHERE bname='" & D_d13 & "' AND hinban LIKE '" & D_d8 & "%' "
+                        strSQL = strSQL + "AND skflg='1' "
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        rs2 = cm2.ExecuteReader
+                        rs2.Read()
+                        D_hinban = rs2("hinban").ToString
+                        rs2.Close()
+                        cn2.Close()
+
+                        strSQL = ""
+                        strSQL = strSQL + "UPDATE trace5_data SET d22='" & D_hinban & "' "
+                        strSQL = strSQL + "WHERE d13='" & D_d13 & "' AND d8 = '" & D_d8 & "' "
+                        cn2.Open()
+                        cm2 = New NpgsqlCommand
+                        cm2.Connection = cn2
+                        cm2.CommandText = strSQL
+                        cm2.ExecuteNonQuery()
+                        cn2.Close()
+
+                    End If
+
+                End If
+
+            End While
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake06", "")
+        End Try
+
+    End Sub
+
+End Module
+

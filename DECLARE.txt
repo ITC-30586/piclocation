@@ -1,0 +1,91 @@
+
+	DECLARE	
+	
+		req 			text;
+		sd 				char(12);
+		rc 				int;
+		pr 				BIGINT;
+		prnoz 		text;
+
+		kadou1 		text;
+		kadou2 		text;
+		
+
+	BEGIN
+		/* 不正かんばんチェック */
+		SELECT INTO rc COUNT(*) FROM printed_kanban WHERE ukey = NEW.ukey1;
+		IF rc = 0 THEN
+			RETURN NULL;
+		ELSE
+			/* 過去データ対応処理 en 8 or D 以外は進捗が途中のため K (データ廃棄処理)*/
+			UPDATE process_log SET en='8' WHERE ukey = NEW.ukey1 AND en = '7'; 
+			
+			/* 進捗未完了データについて */
+			UPDATE process_log SET en='K' WHERE ukey = NEW.ukey1 AND (en <> '8'); 
+	
+		END IF;
+	
+		/* 空かご対応 */
+		IF NEW.ukey2 <> '00000000000' THEN
+			SELECT INTO rc COUNT(*) FROM printed_kanban WHERE ukey = NEW.ukey2;
+			IF rc = 0 THEN
+				RETURN NULL;
+			ELSE
+				/* 過去データ対応処理 en 8 or D 以外は進捗が途中のため K (データ廃棄処理)*/
+				UPDATE process_log SET en='8' WHERE ukey = NEW.ukey2 AND en = '7'; 
+				
+				/* 進捗未完了データについて */
+				UPDATE process_log SET en='K' WHERE ukey = NEW.ukey2 AND (en <> '8'); 
+			END IF;
+		END IF;
+
+		/* process_log_history */
+		INSERT INTO process_log_history SELECT * FROM process_log WHERE (en='8' OR en='K');	
+
+		/* INIT prno */
+		req = to_char(current_timestamp,'YYYYMMDD')||'%';
+		SELECT INTO rc COUNT(*) FROM process_log WHERE prno LIKE req;
+		IF rc = 0 THEN
+			sd = to_char(CURRENT_TIMESTAMP,'YYYYMMDD') || '0000';
+			EXECUTE 'SELECT SETVAL(''prno'',''' || sd || ''');';
+		END IF;
+		/* GET prno */
+		SELECT INTO pr NEXTVAL('prno');
+		prnoz = trim(to_char(pr,'000000000000'));
+		
+		/* 稼働日変換 AM8切り替え */
+		kadou1 = to_char(CURRENT_TIMESTAMP,'HH24');
+		
+		IF kadou1 > '07' THEN
+			kadou2 = to_char(CURRENT_TIMESTAMP,'yyyy/mm/dd');
+		ELSE
+			kadou2 = TO_CHAR(CURRENT_TIMESTAMP + interval '-1 day', 'YYYY/MM/DD') ;
+		END IF;
+
+		/* 上段処理 空かごの場合処理しない　 保留の場合処理 */
+		IF NEW.lout <> 'C' THEN
+			INSERT INTO process_log(ukey,en,lout,prno,lastdate,dc10,kd10,cv10,f10,d10,t10,hid,kt)VALUES(NEW.ukey1,'1',NEW.lout,prnoz,CURRENT_TIMESTAMP,NEW.dc10,NEW.kd10,NEW.cv10,NEW.bp,NEW.gdate,kadou2,substring(NEW.ukey1,3,5),substring(NEW.ukey1,1,1));
+		ELSE
+			INSERT INTO process_log(ukey,en,lout,prno,lastdate,dc10,kd10,cv10,f10,d10,t10,lcd,lct,hid,kt)VALUES(NEW.ukey1,'1',NEW.lout,prnoz,CURRENT_TIMESTAMP,NEW.dc10,NEW.kd10,NEW.cv10,NEW.bp,NEW.gdate,kadou2,CURRENT_TIMESTAMP,to_char(CURRENT_TIMESTAMP,'yyyy/mm/dd'),substring(NEW.ukey1,3,5),substring(NEW.ukey1,1,1));
+		END IF;
+
+		/* 下段処理 */
+		IF NEW.ukey2 <> '00000000000' THEN
+			SELECT INTO pr NEXTVAL('prno');
+			prnoz = trim(to_char(pr,'000000000000'));
+
+			IF NEW.lout <> 'C' THEN
+				INSERT INTO process_log(ukey,en,lout,prno,lastdate,dc10,kd10,cv10,f10,d10,t10,hid,kt)VALUES(NEW.ukey2,'1',NEW.lout,prnoz,CURRENT_TIMESTAMP,NEW.dc10,NEW.kd10,NEW.cv10,NEW.bp,NEW.gdate,kadou2,substring(NEW.ukey2,3,5),substring(NEW.ukey2,1,1));
+			ELSE
+				INSERT INTO process_log(ukey,en,lout,prno,lastdate,dc10,kd10,cv10,f10,d10,t10,lcd,lct,hid,kt)VALUES(NEW.ukey2,'1',NEW.lout,prnoz,CURRENT_TIMESTAMP,NEW.dc10,NEW.kd10,NEW.cv10,NEW.bp,NEW.gdate,kadou2,CURRENT_TIMESTAMP,to_char(CURRENT_TIMESTAMP,'yyyy/mm/dd'),substring(NEW.ukey2,3,5),substring(NEW.ukey2,1,1));
+			END IF;
+		END IF;
+		
+		/* 不要行削除 */
+		DELETE FROM process_log WHERE (en='8' OR en='K');
+		/* temp 削除 */
+		DELETE FROM temp_10;
+
+		RETURN NULL;
+
+END

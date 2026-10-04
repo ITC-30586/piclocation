@@ -1,0 +1,825 @@
+Imports C1.Win.C1FlexGrid
+Imports C1.Win.TouchToolKit
+Imports System.IO.Ports
+Imports System.Management
+
+
+Public Class Form1
+
+
+    Dim stCurrentDir As String
+    Dim cna As New OleDb.OleDbConnection           'accdb
+    'accdb保存場所
+    Dim ACCF As String = "C:\PIC_TEST"
+
+    '進行中　作業番号
+    Dim WN As String
+
+    'SerialPort
+    Dim CMP As String               'AT-26Q COMPORT
+    Dim blockbuf As String
+
+
+
+    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles Me.Load
+
+
+        '2重起動防止
+        Dim pn As String = Process.GetCurrentProcess.ProcessName
+        If Process.GetProcessesByName(pn).GetUpperBound(0) > 0 Then
+            Me.Close()
+        End If
+
+        '起動パス
+        stCurrentDir = System.IO.Directory.GetCurrentDirectory()
+
+        '作業保存フォルダ作成とaccdb配置が必要
+
+
+
+
+
+        System.Threading.Thread.Sleep(250)
+
+        'DB接続確認
+        Call AC_Connect()
+
+        Call Init_DENSO_USB_COM_Port()
+        Call COM_Connect()
+
+        Call Init_Form1()
+        Call Init_C1FG01()
+        Call Init_Combo01()
+        Call Init_RadioButton(0)
+
+        C1ZoomPanel1.ZoomFactor = 1.0F
+        C1ZoomPanel1.MaxZoomFactor = 4.0F
+        C1ZoomPanel1.AllowDoubleTapZoom = True
+        ' スナップ間隔を5%にする
+        C1ZoomPanel1.ZoomSnapDistance = 0.05F
+        ' 195%～205%を200%にスナップする
+        C1ZoomPanel1.ZoomSnapPoints.Add(2.0F)
+        ' 295%～305%を300%にスナップする
+        C1ZoomPanel1.ZoomSnapPoints.Add(3.0F)
+        ' 395%～400%を400%にスナップする
+        C1ZoomPanel1.ZoomSnapPoints.Add(4.0F)
+
+        C1ZoomPanel1.InnerPanelLayoutMode = C1.Win.TouchToolKit.InnerPanelLayoutMode.MiddleCenter
+        C1ZoomPanel1.BoundaryFeedbackMode = C1.Win.TouchToolKit.BoundaryFeedbackMode.Standard
+
+        Me.WindowState = FormWindowState.Maximized
+
+
+    End Sub
+
+
+    'Access接続
+    Private Sub AC_Connect()
+        Dim ConStr As String
+
+        Try
+            ConStr = String.Format("Provider=Microsoft.ACE.OLEDB.12.0;" & "Data Source=" & ACCF & "\work.accdb;")
+            'ConStr = String.Format("Provider=Microsoft.ACE.OLEDB.12.0;" & "Data Source=" & System.Windows.Forms.Application.StartupPath & "\work.accdb;")
+            cna.ConnectionString = ConStr
+            '接続テスト
+            cna.Open()
+            cna.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("AC_Connect", "")
+        End Try
+    End Sub
+    'エラーログを書き出す
+    Public Sub ErrLOG(ByVal C1 As String, ByVal C2 As String)
+
+        Dim FileName As String
+        Dim WS As System.IO.StreamWriter
+
+        Try
+            FileName = stCurrentDir & "\errlog.txt"
+            WS = System.IO.File.AppendText(FileName)
+            WS.WriteLine(C1 & ":" & C2 & ":" & Format(Now, "yyyy/MM/dd HH:mm:ss"))
+            WS.Close()
+        Catch ex As Exception
+            End
+        End Try
+    End Sub
+
+    ''DENSO WAVE Active USB-COM Port 取得
+    Private Sub Init_DENSO_USB_COM_Port()
+
+        Dim mcW32SerPort As New ManagementClass("Win32_SerialPort")
+        Dim aSerialPort As ManagementObject
+        Dim dCOM As String
+
+        For Each aSerialPort In mcW32SerPort.GetInstances()
+            Console.WriteLine(DirectCast(aSerialPort.GetPropertyValue("DeviceID"), String) & ":" & DirectCast(aSerialPort.GetPropertyValue("Caption"), String))
+            'DENSO WAVE Active USB-COM Port 検索 AND Conneced検索
+            dCOM = DirectCast(aSerialPort.GetPropertyValue("DeviceID"), String) & ":" & DirectCast(aSerialPort.GetPropertyValue("Caption"), String)
+
+            If 0 <= dCOM.IndexOf("DENSO WAVE Active USB-COM Port") Then
+                If 0 <= dCOM.IndexOf("Connected") Then
+                    '接続ポート
+                    CMP = Strings.Left(dCOM, 4)
+                    Exit Sub
+                Else
+
+                End If
+            Else
+            End If
+        Next
+        CMP = ""
+
+    End Sub
+    Private Sub COM_Connect()
+
+        Try
+            If CMP <> "" Then
+                '19200,N,8,1 通信設定
+                With SerialPort1
+                    .PortName = CMP
+                    .BaudRate = 19200
+                    .DataBits = 8
+                    .Parity = Parity.None
+                    .StopBits = StopBits.One
+                    .Handshake = Handshake.None
+                    .ReceivedBytesThreshold = 2
+                    .ReadTimeout = 10000
+                    .WriteTimeout = 10000
+
+                    .DtrEnable = True
+                    .RtsEnable = True
+                End With
+
+                If SerialPort1.IsOpen = False Then
+                    SerialPort1.Open()
+                    SerialPort1.DiscardInBuffer()
+                    SerialPort1.DiscardOutBuffer()
+                End If
+            Else
+                MessageBox.Show(" QRコードリーダーの接続が確認できません　", "警告", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            End If
+
+        Catch ex As Exception
+            Call ErrLOG("COM_Connect", "")
+            MessageBox.Show(" ハンディターミナルが接続されていません??　", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+
+    End Sub
+    Private Sub COM_DisConnect()
+        If SerialPort1.IsOpen = True Then
+            SerialPort1.Close()
+        End If
+    End Sub
+
+    'バーコードリーダーからの入力
+    Private Sub SerialPort1_DataReceived(sender As Object, e As System.IO.Ports.SerialDataReceivedEventArgs) Handles SerialPort1.DataReceived
+
+        If SerialPort1.IsOpen = False Then
+            Return
+        End If
+        System.Threading.Thread.Sleep(200)
+        'Clear
+        blockbuf = ""
+        Do
+            Dim returnStr As String = SerialPort1.ReadExisting()
+            blockbuf &= returnStr.ToString
+
+            If SerialPort1.BytesToRead = 0 Then
+                SerialPort1.DiscardInBuffer()
+                SerialPort1.DiscardOutBuffer()
+                Exit Do
+            End If
+        Loop
+
+        '表示対応
+        If Strings.Left(blockbuf, 2) = "DK" Then
+
+
+
+
+
+
+        End If
+
+    End Sub
+
+
+
+
+
+
+
+
+
+
+    Private Sub Init_Form1()
+
+        '作業A
+        RadioButton4.Checked = True
+
+        'trackbar設定 100-400%
+        TrackBar1.Minimum = 1
+        TrackBar1.Maximum = 13
+
+        Label1.Text = "100%"
+
+        TextBox1.Text = ""
+        TextBox2.Text = ""
+
+
+    End Sub
+
+    Private Sub Init_C1FG01()
+
+        Dim N As Integer
+
+
+        C1FlexGrid1.Visible = False
+        C1FlexGrid1.Clear()
+
+        'Background指定
+        '初期画面　
+        C1FlexGrid1.BackgroundImage = Image.FromFile(System.Windows.Forms.Application.StartupPath & "\default.png")
+        'C1FlexGrid1.BackgroundImage = Image.FromFile(System.Windows.Forms.Application.StartupPath & "\Sample.png")
+        C1FlexGrid1.BackgroundImageLayout = ImageLayout.Stretch
+
+        '罫線
+        C1FlexGrid1.Styles.Normal.Border.Color = Color.Gray
+        C1FlexGrid1.Styles.Normal.Border.Style = BorderStyleEnum.Dotted
+        C1FlexGrid1.Styles.Normal.Border.Width = 1
+
+        'フォーカス罫線
+        C1FlexGrid1.Styles.Focus.Border.Color = Color.Red
+        C1FlexGrid1.Styles.Focus.Border.Style = C1.Win.C1FlexGrid.BorderStyleEnum.Double
+
+        'mode毎にそれぞれ設定
+        N = 100
+
+        '100,107
+        C1FlexGrid1.Rows.DefaultSize = 15
+        C1FlexGrid1.Cols.DefaultSize = 9
+
+        With C1FlexGrid1
+            .Rows.Fixed = 0
+            .Cols.Fixed = 0
+
+            'filed数
+            .Cols.Count = N + 1
+            .Rows.Count = N + 1 + 10
+
+            'スクロールバー廃止へ
+            .ScrollBars = ScrollBars.None
+            'スクロールしないように、、
+
+            For i = 0 To N
+                .Cols(i).Width = 15
+            Next
+
+            For i = 0 To N + 10
+                .Rows(i).Height = 9
+            Next
+        End With
+
+
+        C1FlexGrid1.Visible = True
+        C1FlexGrid1.Select(-1, -1, True)
+
+
+    End Sub
+
+    '金型選択
+    Private Sub Init_Combo01()
+
+        ComboBox1.Items.Clear()
+        ComboBox1.Items.Add("A")
+
+        ComboBox1.Text = ""
+
+    End Sub
+
+    Private Sub Init_RadioButton(N As Integer)
+
+        If N = 0 Then
+            '無効
+            RadioButton1.Enabled = False
+            RadioButton2.Enabled = False
+            RadioButton3.Enabled = False
+            RadioButton4.Enabled = False
+        Else
+            '有効
+            RadioButton1.Enabled = True
+            RadioButton2.Enabled = True
+            RadioButton3.Enabled = True
+            RadioButton4.Enabled = True
+        End If
+
+    End Sub
+
+    '金型選択
+    Private Sub ComboBox1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox1.SelectedIndexChanged
+
+        Dim C1 As String = ComboBox1.Text
+
+        If Len(C1) = 0 Then
+            Call Init_RadioButton(0)
+        Else
+            Call Init_RadioButton(1)
+            Call SelectPNG(C1)
+            C1FlexGrid1.Select()
+
+            '作業番号取得
+            Call StartWork01(C1)
+
+
+
+
+        End If
+
+    End Sub
+
+    'PNG選択へ
+    Private Sub SelectPNG(KN As String)
+        'KN 金型番号
+
+        If KN = "A" Then
+            C1FlexGrid1.BackgroundImage = Image.FromFile(System.Windows.Forms.Application.StartupPath & "\Sample.png")
+
+        End If
+
+
+    End Sub
+
+    '作業番号取得とDB準備
+    Private Sub StartWork01(KN As String)
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+
+        WN = Convert.ToString(CLng(Format(Now, "yyyyyMMddHHmmss")), 16)
+        '作業番号表示
+        TextBox2.Text = WN.ToUpper
+
+        'work_log INSERT
+        If cna.State = ConnectionState.Open = True Then
+            cna.Close()
+        End If
+
+        '前回までの未保存データが存在する場合の処理
+        strSQL = ""
+        strSQL = strSQL + "DELETE FROM work_log WHERE sflg='0' "
+        cna.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna
+        cma.CommandText = strSQL
+        cma.ExecuteNonQuery()
+        cna.Close()
+
+        strSQL = ""
+        strSQL = strSQL + "DELETE FROM work_pointdata WHERE sflg='0' "
+        cna.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna
+        cma.CommandText = strSQL
+        cma.ExecuteNonQuery()
+        cna.Close()
+
+        '新規作業登録
+        strSQL = ""
+        strSQL = strSQL + "INSERT INTO work_log("
+        strSQL = strSQL + "workno,"
+        strSQL = strSQL + "wtime,"
+        strSQL = strSQL + "katano,"
+        'strSQL = strSQL + "hinban,"
+        strSQL = strSQL + "sflg"
+        strSQL = strSQL + ")VALUES("
+        strSQL = strSQL + "'" & WN & "',"
+        strSQL = strSQL + "'" & Now() & "',"
+        strSQL = strSQL + "'" & KN & "',"
+        'strSQL = strSQL + "" & hinban & ","
+        strSQL = strSQL + "'" & "0" & "'"
+        strSQL = strSQL + ")"
+        cna.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna
+        cma.CommandText = strSQL
+        cma.ExecuteNonQuery()
+        cna.Close()
+
+
+
+    End Sub
+
+
+    'レコード選択
+    Private Sub C1FlexGrid1_Click(sender As Object, e As EventArgs) Handles C1FlexGrid1.Click
+
+        Dim x As Integer                'セル位置
+        Dim y As Integer                '選択されたレコード      
+        Dim sData As String
+
+        '今回の作業内容
+        Dim Wt As Integer
+
+        Try
+
+            x = C1FlexGrid1.Col
+            y = C1FlexGrid1.Row
+
+            If y = 0 And y < 0 Then
+                Exit Sub
+            End If
+
+            '塗りつぶしカラー設定
+            '作業A(NewStyle1)
+            Dim NS1 As CellStyle = C1FlexGrid1.Styles.Add("NS1")
+            'darkgray
+            NS1.BackColor = Color.FromArgb(50, 169, 169, 169)
+            NS1.ForeColor = Color.Crimson
+            NS1.Font = New Font("ＭＳ 明朝", 6, FontStyle.Regular)
+            '文字位置
+            NS1.TextAlign = TextAlignEnum.CenterCenter
+
+            '作業B
+            Dim NS2 As CellStyle = C1FlexGrid1.Styles.Add("NS2")
+            'tan
+            NS2.BackColor = Color.FromArgb(50, 210, 180, 140)
+            NS2.ForeColor = Color.DodgerBlue
+            NS2.Font = New Font("ＭＳ 明朝", 6, FontStyle.Regular)
+            NS2.TextAlign = TextAlignEnum.CenterCenter
+
+            '作業C
+            Dim NS3 As CellStyle = C1FlexGrid1.Styles.Add("NS3")
+            'skyblue
+            NS3.BackColor = Color.FromArgb(50, 135, 206, 235)
+            NS3.ForeColor = Color.Green
+            NS3.Font = New Font("ＭＳ 明朝", 6, FontStyle.Regular)
+            NS3.TextAlign = TextAlignEnum.CenterCenter
+
+            '作業混合
+            Dim NS4 As CellStyle = C1FlexGrid1.Styles.Add("NS4")
+            'coral
+            NS4.BackColor = Color.FromArgb(50, 255, 127, 80)
+            NS4.ForeColor = Color.SaddleBrown
+            NS4.Font = New Font("ＭＳ 明朝", 6, FontStyle.Regular)
+            NS4.TextAlign = TextAlignEnum.CenterCenter
+
+            Dim check As C1.Win.C1FlexGrid.CellStyle = C1FlexGrid1.GetCellRange(y, x).Style
+            ' Style.BackColorの取得
+            If Not check Is Nothing Then
+
+                If RadioButton4.Checked = True Then
+
+                    'クリア作業
+                    Wt = 98
+                    'リセット
+                    C1FlexGrid1.SetCellStyle(y, x, "empty")
+                    C1FlexGrid1.SetData(y, x, "")
+
+                Else
+                    sData = C1FlexGrid1(y, x)
+
+                    '同じ作業が重複しないような処理追加
+                    If RadioButton1.Checked = True Then
+                        If sData.Contains("●") = False Then
+
+                            Wt = 0
+
+                            C1FlexGrid1.SetCellStyle(y, x, NS4)
+                            C1FlexGrid1.SetData(y, x, sData + "●")
+                        End If
+                    End If
+
+                    If RadioButton2.Checked = True Then
+
+                        Wt = 1
+
+                        If sData.Contains("◆") = False Then
+                            C1FlexGrid1.SetCellStyle(y, x, NS4)
+                            C1FlexGrid1.SetData(y, x, sData + "◆")
+                        End If
+
+                    End If
+
+                    If RadioButton3.Checked = True Then
+
+                        Wt = 2
+
+                        If sData.Contains("▲") = False Then
+                            C1FlexGrid1.SetCellStyle(y, x, NS4)
+                            C1FlexGrid1.SetData(y, x, sData + "▲")
+                        End If
+                    End If
+
+                End If
+
+                C1FlexGrid1.Select(-1, -1, True)
+
+            Else
+
+                If RadioButton1.Checked = True Then
+
+                    Wt = 0
+
+                    C1FlexGrid1.SetCellStyle(y, x, NS1)
+                    C1FlexGrid1.SetData(y, x, "●")
+                End If
+
+                If RadioButton2.Checked = True Then
+
+                    Wt = 1
+
+                    C1FlexGrid1.SetCellStyle(y, x, NS2)
+                    C1FlexGrid1.SetData(y, x, "◆")
+                End If
+
+                If RadioButton3.Checked = True Then
+
+                    Wt = 2
+
+                    C1FlexGrid1.SetCellStyle(y, x, NS3)
+                    C1FlexGrid1.SetData(y, x, "▲")
+                End If
+
+                If RadioButton4.Checked = True Then
+                    'クリア？
+                    Wt = 99
+
+                    C1FlexGrid1.SetCellStyle(y, x, "empty")
+                    C1FlexGrid1.SetData(y, x, "")
+                End If
+
+                C1FlexGrid1.Select(-1, -1, True)
+
+            End If
+
+            '作業表示
+            TextBox1.Text = "(" & Str(x) & "," & Str(y) & ")"
+            '作業履歴が残るようにする work.accdbへ
+            Call PointDBIN(x, y, WN, Wt)
+
+            ' カレントセルのカーソルを非表示
+            C1FlexGrid1.Row = -1
+            C1FlexGrid1.Col = -1
+
+
+        Catch ex As Exception
+
+        End Try
+
+
+    End Sub
+
+    '作業ポイントDB登録 座標+作業番号+作業種類
+    Private Sub PointDBIN(Xn As Integer, Yn As Integer, WN As String, WT As Integer)
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+
+        If cna.State = ConnectionState.Open = True Then
+            cna.Close()
+        End If
+
+        If WT <> 99 And WT <> 98 Then
+            'accdb INSERT
+            strSQL = ""
+            strSQL = strSQL + "INSERT INTO work_pointdata("
+            strSQL = strSQL + "workno,"
+            strSQL = strSQL + "wtime,"
+            strSQL = strSQL + "x,"
+            strSQL = strSQL + "y,"
+            strSQL = strSQL + "wtype,"
+            strSQL = strSQL + "sflg"
+            strSQL = strSQL + ")VALUES("
+            strSQL = strSQL + "'" & WN & "',"
+            strSQL = strSQL + "'" & Now() & "',"
+            strSQL = strSQL + "" & Xn & ","
+            strSQL = strSQL + "" & Yn & ","
+            strSQL = strSQL + "" & WT & ","
+            strSQL = strSQL + "'" & "0" & "'"
+            strSQL = strSQL + ")"
+            cna.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna
+            cma.CommandText = strSQL
+            cma.ExecuteNonQuery()
+            cna.Close()
+
+        ElseIf WT = 98 Then
+            '作業履歴クリアの場合
+            strSQL = ""
+            strSQL = strSQL + "DELETE FROM work_pointdata "
+            strSQL = strSQL + "WHERE workno='" & WN & "' "
+            strSQL = strSQL + "AND x=" & Xn & " "
+            strSQL = strSQL + "AND y=" & Yn & " "
+            cna.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna
+            cma.CommandText = strSQL
+            cma.ExecuteNonQuery()
+            cna.Close()
+
+        End If
+
+    End Sub
+
+
+    '作業内容画像へ
+    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+        Dim Num As Integer
+
+        'コントロールの外観を描画するBitmapの作成
+        Dim bmp As New Bitmap(C1FlexGrid1.Width, C1FlexGrid1.Height)
+        'Dim bmp As New Bitmap(Me.Width, Me.Height)
+
+        'キャプチャする
+        C1FlexGrid1.DrawToBitmap(bmp, New Rectangle(0, 0, C1FlexGrid1.Width, C1FlexGrid1.Height))
+        'Me.DrawToBitmap(bmp, New Rectangle(0, 0, Me.Width, Me.Height))
+
+        '特定フォルダ作成？？
+
+
+        'ファイルに保存する
+        '作業履歴確認 
+
+        If cna.State = ConnectionState.Open = True Then
+            cna.Close()
+        End If
+
+        '念のため
+        strSQL = ""
+        strSQL = strSQL + "SELECT COUNT(*) FROM work_pointdata "
+        strSQL = strSQL + "WHERE workno='" & WN & "' "
+        cna.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna
+        cma.CommandText = strSQL
+        Num = cma.ExecuteScalar
+        cna.Close()
+
+        If Num <> 0 Then
+            bmp.Save(System.Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) & "\" & WN & ".png")
+            '作業履歴をCSVへ
+            Call OutputCSV(WN)
+            '後始末
+            bmp.Dispose()
+
+        Else
+
+            MessageBox.Show("  作業履歴が確認できません　", "警告", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+
+        End If
+
+
+        '完了フラグ処理
+
+
+        '初期画面へ
+        Call Init_Form1()
+        Call Init_C1FG01()
+        Call Init_Combo01()
+        Call Init_RadioButton(0)
+
+
+    End Sub
+
+    '作業履歴をCSV出力
+    Private Sub OutputCSV(WN As String)
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+        Dim rsa As OleDb.OleDbDataReader
+        Dim Num As Integer
+
+
+        Dim FileName As String
+        Dim WS As System.IO.StreamWriter
+        Dim strTXT As String
+
+
+        If cna.State = ConnectionState.Open = True Then
+            cna.Close()
+        End If
+
+        '念のため
+        strSQL = ""
+        strSQL = strSQL + "SELECT COUNT(*) FROM work_pointdata "
+        strSQL = strSQL + "WHERE workno='" & WN & "' "
+        cna.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna
+        cma.CommandText = strSQL
+        Num = cma.ExecuteScalar
+        cna.Close()
+
+        If Num <> 0 Then
+
+            'CSV作成準備
+            FileName = System.Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) & "\" & WN & ".csv"
+            WS = System.IO.File.AppendText(FileName)
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM work_pointdata "
+            strSQL = strSQL + "WHERE workno='" & WN & "' "
+            cna.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna
+            cma.CommandText = strSQL
+            rsa = cma.ExecuteReader
+            While (rsa.Read())
+
+                strTXT = ""
+                strTXT = strTXT + rsa("workno").ToString & "," & rsa("wtime").ToString & "," & rsa("x").ToString & "," & rsa("y").ToString & "," & rsa("wtype").ToString
+                WS.WriteLine(strTXT)
+
+            End While
+            cna.Close()
+            WS.Close()
+
+        End If
+
+    End Sub
+
+    '400%表示
+    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+
+        C1ZoomPanel1.ZoomFactor = 4.0F
+        TrackBar1.Value = 13
+
+        Label1.Text = String.Format("{0:P}", C1ZoomPanel1.ZoomFactor)
+
+    End Sub
+    '100%表示
+    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
+
+        C1ZoomPanel1.ZoomFactor = 1.0F
+
+        TrackBar1.Value = 1
+
+        Label1.Text = String.Format("{0:P}", C1ZoomPanel1.ZoomFactor)
+
+    End Sub
+    Private Sub C1ZoomPanel1_ZoomFactorChanged(sender As Object, e As EventArgs) Handles C1ZoomPanel1.ZoomFactorChanged
+        'Me.Text = String.Format("{0:P}", C1ZoomPanel1.ZoomFactor)
+
+        Label1.Text = String.Format("{0:P}", C1ZoomPanel1.ZoomFactor)
+
+        'TrackBar1.Value = zf_value
+
+    End Sub
+    '拡大率変更
+    Private Sub TrackBar1_ValueChanged(sender As Object, e As EventArgs) Handles TrackBar1.ValueChanged
+
+        Dim tb_value As Integer
+        Dim zvalue As Double
+
+        tb_value = TrackBar1.Value
+        zvalue = (tb_value - 1) * 0.25 + 1
+
+        C1ZoomPanel1.ZoomFactor = zvalue
+
+        'Label1.Text = String.Format("{0:P}", C1ZoomPanel1.ZoomFactor)
+
+    End Sub
+    '縮小
+    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+
+        Dim tb_value As Integer
+
+        tb_value = TrackBar1.Value
+
+        If tb_value <> 1 Then
+
+            TrackBar1.Value = tb_value - 1
+        End If
+
+    End Sub
+    '拡大
+    Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
+
+        Dim tb_value As Integer
+
+        tb_value = TrackBar1.Value
+
+        If tb_value <> 13 Then
+
+            TrackBar1.Value = tb_value + 1
+        End If
+
+
+    End Sub
+
+
+
+
+
+
+
+
+
+
+
+End Class
