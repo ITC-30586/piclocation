@@ -80,7 +80,11 @@ Public Class Form1
             Call ConnectToDatabase()
             Call InitializeForm()
             Call InitializeGrid()
+            Call InitializeGrid2()
             Call InitializeCellStyles()
+
+
+
 
         Catch ex As IO.FileNotFoundException
             WriteErrorLog("Form1_Load", ex.Message)
@@ -248,6 +252,69 @@ Public Class Form1
         End Try
     End Sub
 
+    Private Sub InitializeGrid2()
+        Try
+            C1FlexGrid2.Visible = False
+            'C1FlexGrid2.Location = New Drawing.Point(2633, 553)
+            'C1FlexGrid2.Size = New Drawing.Size(393, 329)
+            C1FlexGrid2.Clear()
+
+
+            ' グリッド設定
+            '            ConfigureGridAppearance()
+            '            ConfigureGridSize()
+
+            With C1FlexGrid2
+                .Rows.Fixed = 1
+                .Cols.Fixed = 1
+
+                '右端の処理
+                .ExtendLastCol = True
+
+                'filed数
+                .Cols.Count = 4
+                .Rows.Count = 1
+
+
+                '初期表示
+                .Cols(0).Caption = "NO"
+                .Cols(1).Caption = "X座標"
+                .Cols(2).Caption = "Y座標"
+                .Cols(3).Caption = "不具合"
+
+                '表示幅
+                .Cols(0).Width = 40
+                .Cols(1).Width = 60
+                .Cols(2).Width = 60
+                .Cols(3).Width = 60
+
+                For i = 0 To 3
+                    .Cols(i).TextAlignFixed = C1.Win.C1FlexGrid.TextAlignEnum.CenterCenter
+                    .Cols(i).StyleFixed.Font = New Font("verda", 8, FontStyle.Regular)
+
+                    .Cols(i).TextAlign = C1.Win.C1FlexGrid.TextAlignEnum.CenterCenter
+                    .Cols(i).Style.Font = New Font("verda", 9, FontStyle.Regular)
+                Next
+
+            End With
+
+            C1FlexGrid2.Visible = True
+            C1FlexGrid2.Select(-1, -1, True)
+
+        Catch ex As Exception
+            WriteErrorLog("InitializeGrid2", ex.Message)
+            Throw
+        End Try
+    End Sub
+
+
+
+
+
+
+
+
+
     ' 背景画像読み込み
     Private Sub LoadBackgroundImage()
         Dim imagePath As String = System.IO.Path.Combine(Application.StartupPath, "default.png")
@@ -344,6 +411,9 @@ Public Class Form1
                     Call InsertWorkData(PR1, colIndex, rowIndex, 5)
             End Select
 
+            ' 作業データをc1flexgrid2に表示する
+            DisplayWorkDataInGrid2(PR1)
+
         Catch ex As Exception
             WriteErrorLog("C1FlexGrid1_Click", ex.Message)
             MessageBox.Show("セル選択中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
@@ -351,6 +421,34 @@ Public Class Form1
     End Sub
 
 
+
+    'c1flexgrid2にtemp_work02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid2(workno As String)
+        Try
+            Dim sql = "SELECT xp, yp, dno FROM temp_work02 WHERE workno=@workno ORDER BY xp, yp;"
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    Dim rowIndex As Integer = 1
+                    While reader.Read()
+                        C1FlexGrid2.Rows.Add()
+                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        rowIndex += 1
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
 
 
 
@@ -383,18 +481,9 @@ Public Class Form1
     ' ComboBox初期化 (旧:Init_Combo01)
     Private Sub InitializeComboBox()
 
-
-
-
-
-
         With ComboBox1
             .Items.Clear()
             .Items.AddRange(New String() {"", "Clear", "①：テスト1", "②：テスト2", "③：テスト3", "④：テスト4", "⑤:テスト5"})
-
-
-
-
 
             .SelectedIndex = 0
             .DropDownStyle = ComboBoxStyle.DropDownList
@@ -495,8 +584,11 @@ Public Class Form1
             '作業番号表示
             TextBox1.Text = PR1
 
-
-
+            ' 作業データをc1flexgrid2に表示する
+            DisplayWorkDataInGrid2(PR1)
+            'c1flexgrid1に過去の作業結果を表示する
+            ' 過去の作業結果をグリッドへ反映
+            LoadPastWorkData(PR1)
 
 
         End If
@@ -505,16 +597,112 @@ Public Class Form1
 
 
     End Sub
+
+    ' 過去の作業結果をグリッドへ反映する
+    Private Sub LoadPastWorkData(workno As String)
+        Try
+            ClearWorkCells()
+
+            Dim sql As String =
+            "SELECT xp, yp, dno " &
+            "FROM temp_work02 " &
+            "WHERE workno = @workno AND sflg = '0' " &
+            "ORDER BY workdate, xp, yp;"
+
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+              cmd As New NpgsqlCommand(sql, cn)
+
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+
+                Using rs As NpgsqlDataReader = cmd.ExecuteReader()
+                    While rs.Read()
+                        Dim xp As Integer = Convert.ToInt32(rs("xp"))
+                        Dim yp As Integer = Convert.ToInt32(rs("yp"))
+                        Dim dno As Integer = Convert.ToInt32(rs("dno"))
+
+                        If yp > 0 AndAlso yp <= GRID_SIZE AndAlso xp >= 0 AndAlso xp <= GRID_SIZE Then
+                            ApplyWorkStyleFromDno(yp, xp, dno)
+                        End If
+                    End While
+                End Using
+            End Using
+
+        Catch ex As Exception
+            WriteErrorLog("LoadPastWorkData", ex.Message)
+            MessageBox.Show("過去の作業結果の表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub ApplyWorkStyleFromDno(rowIndex As Integer, colIndex As Integer, dno As Integer)
+        Select Case dno
+            Case 1
+                ApplyCellStyle(rowIndex, colIndex, COMBO_INDEX_STYLE1)
+            Case 2
+                ApplyCellStyle(rowIndex, colIndex, COMBO_INDEX_STYLE2)
+            Case 3
+                ApplyCellStyle(rowIndex, colIndex, COMBO_INDEX_STYLE3)
+            Case 4
+                ApplyCellStyle(rowIndex, colIndex, COMBO_INDEX_STYLE4)
+            Case 5
+                ApplyCellStyle(rowIndex, colIndex, COMBO_INDEX_STYLE5)
+            Case Else
+                C1FlexGrid1.SetData(rowIndex, colIndex, "")
+        End Select
+    End Sub
+
+    Private Sub ClearWorkCells()
+        For row As Integer = 1 To GRID_SIZE
+            For col As Integer = 0 To GRID_SIZE
+                C1FlexGrid1.SetData(row, col, "")
+                C1FlexGrid1.SetCellStyle(row, col, C1FlexGrid1.Styles.Normal)
+            Next
+        Next
+    End Sub
+
+
+
+
+
+
     '作業登録
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         'temp_work02の作業データをwork02へ登録する
 
-
-
-
-
+        InsertWorkDataToWork02(TextBox1.Text)
 
     End Sub
+
+    '作業中データベース登録 temp_work02→work02へ登録する 
+    Private Sub InsertWorkDataToWork02(workno As String)
+
+        Dim sql = "INSERT INTO work02 (workno,xp,yp,dno,workdate) SELECT workno,xp,yp,dno,workdate FROM temp_work02 WHERE workno=@workno;"
+        Using cn As New NpgsqlConnection(cn1.ConnectionString),
+            cmd As New NpgsqlCommand(sql, cn)
+            cmd.Parameters.AddWithValue("@workno", workno)
+            cn.Open()
+            cmd.ExecuteNonQuery()
+            cn.Close()
+
+            '登録後、temp_work02の作業データを削除する
+            DeleteWorkData(workno)
+
+            'c1flexgrid2の表示をクリアする
+            C1FlexGrid2.Rows.Count = 1
+
+            'comboboxを初期化する
+            ComboBox1.SelectedIndex = COMBO_INDEX_NONE
+            'textbox2をクリアする
+            TextBox2.Text = ""
+
+        End Using
+
+    End Sub
+
+
+
+
+
 
     '作業中データベース登録処理　作業番号、作業位置、作業内容を登録する　temp_work02
     Private Sub InsertWorkData(workno As String, xp As Integer, yp As Integer, dno As Integer)
@@ -533,7 +721,7 @@ Public Class Form1
         End Using
     End Sub
 
-    '作業中データベース登録削除　作業番号、作業位置、作業内容を削除する　temp_work02
+    '作業中データベース登録削除　temp_work02内のレコードを削除する
     Private Sub DeleteWorkData(workno As String)
         Dim sql = "DELETE FROM temp_work02 WHERE workno=@workno;"
         Using cn As New NpgsqlConnection(cn1.ConnectionString),
@@ -545,7 +733,7 @@ Public Class Form1
         End Using
     End Sub
 
-    '作業中データベース登録削除　temp_work02内のレコードを削除する
+    '作業中データベース登録削除　作業番号、作業位置、作業内容を削除する　temp_work02
     Private Sub DeleteWorkDataALL(workno As String, xp As Integer, yp As Integer)
         Dim sql = "DELETE FROM temp_work02 WHERE workno=@workno AND xp=@xp AND yp=@yp;"
         Using cn As New NpgsqlConnection(cn1.ConnectionString),
