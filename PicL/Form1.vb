@@ -1,15 +1,17 @@
 ﻿'
 '
 '
+Imports System.IO.Ports
 Imports System.Management
 Imports System.Reflection.Emit
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement
+Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ToolBar
 Imports C1.Framework.Extension
 Imports C1.Util.Win.Win32
 Imports C1.Win.C1FlexGrid
 Imports C1.Win.TouchToolKit
 Imports Npgsql
-
+Imports System.Text
 
 Public Class Form1
 
@@ -58,6 +60,11 @@ Public Class Form1
     Public DP2 As String = "TC260120134350903B1015021261ZZ"
     Public PR1 As String
 
+    ' シリアルポート
+    Private WithEvents _port As SerialPort
+
+    'SerialPort受信バッファ
+    Dim blockbuf As String
 
 
 
@@ -76,13 +83,15 @@ Public Class Form1
             stCurrentDir = System.IO.Directory.GetCurrentDirectory()
 
             ' 初期化処理
-            Call LoadConfiguration()
-            Call ConnectToDatabase()
-            Call InitializeForm()
-            Call InitializeGrid()
-            Call InitializeGrid2()
-            Call InitializeCellStyles()
+            LoadConfiguration()
+            ConnectToDatabase()
+            InitializeForm()
+            InitializeGrid()
+            InitializeGrid2()
+            InitializeCellStyles()
 
+            ' シリアルポートオーブン
+            OpenQrPort()
 
 
 
@@ -496,16 +505,17 @@ Public Class Form1
         C1FlexGrid1.Select()
     End Sub
 
-    ' フォームクローズ時のリソース解放
-    Protected Overrides Sub OnFormClosing(e As FormClosingEventArgs)
-        Try
-            CloseConnections()
-        Catch ex As Exception
-            WriteErrorLog("OnFormClosing", ex.Message)
-        Finally
-            MyBase.OnFormClosing(e)
-        End Try
-    End Sub
+    '' フォームクローズ時のリソース解放
+    'Protected Overrides Sub OnFormClosing(e As FormClosingEventArgs)
+    '    Try
+    '        CloseQrPort()      ' ← 追加（シリアル切断）
+    '        CloseConnections() ' 既存DB切断
+    '    Catch ex As Exception
+    '        WriteErrorLog("OnFormClosing", ex.Message)
+    '    Finally
+    '        MyBase.OnFormClosing(e)
+    '    End Try
+    'End Sub
 
     ' データベース接続のクローズ
     Private Sub CloseConnections()
@@ -663,8 +673,6 @@ Public Class Form1
 
 
 
-
-
     '作業登録
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         'temp_work02の作業データをwork02へ登録する
@@ -698,8 +706,6 @@ Public Class Form1
         End Using
 
     End Sub
-
-
 
 
 
@@ -749,9 +755,75 @@ Public Class Form1
 
 
 
+    ' シリアルポートオープン
+    Private Sub OpenQrPort()
+        _port = New SerialPort("COM3", 9600, Parity.None, 8, StopBits.One)
+        _port.Handshake = Handshake.None
+        _port.DtrEnable = True
+        _port.RtsEnable = False
+        _port.Encoding = Encoding.ASCII
+        _port.NewLine = vbCr
+        _port.ReceivedBytesThreshold = 1
+
+        AddHandler _port.DataReceived, AddressOf Port_DataReceived
+        _port.Open()
+    End Sub
+
+    Private Sub Port_DataReceived(sender As Object, e As SerialDataReceivedEventArgs)
+        Try
+            Dim sp = DirectCast(sender, SerialPort)
+            Dim raw As String = sp.ReadExisting() ' まずは生受信を確認
+
+            Me.BeginInvoke(Sub()
+                               TextBox1.Text &= raw
+                           End Sub)
+
+            ' ここでrawを解析して必要な処理を行う
+
+
+
+
+
+        Catch
+        End Try
+    End Sub
+
+    Protected Overrides Sub OnFormClosing(e As FormClosingEventArgs)
+        Try
+            CloseQrPort()      ' ← 追加（シリアル切断）
+            CloseConnections() ' 既存DB切断
+        Catch ex As Exception
+            WriteErrorLog("OnFormClosing", ex.Message)
+        Finally
+            MyBase.OnFormClosing(e)
+        End Try
+    End Sub
+    ' 追加：QRポート解放専用メソッド
+    Private Sub CloseQrPort()
+        Try
+            If _port IsNot Nothing Then
+                RemoveHandler _port.DataReceived, AddressOf Port_DataReceived
+                If _port.IsOpen Then
+                    _port.Close()
+                End If
+                _port.Dispose()
+                _port = Nothing
+            End If
+        Catch ex As Exception
+            WriteErrorLog("CloseQrPort", ex.Message)
+        End Try
+    End Sub
+
+
 
 
 End Class
+
+
+
+
+
+
 
 
 

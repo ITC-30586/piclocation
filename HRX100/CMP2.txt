@@ -1,0 +1,1867 @@
+'
+'   作業指示書表示                 
+'
+'           ver 1.0.0       2015/10/26
+'               1.0.2       2015/10/27      PDFファイル保管ファルダ変更
+'               1.0.4                       使用ログ取得
+'               1.0.5                       PDF_local化
+'               1.1.5                       1.0.6→戻る
+
+'               1.0.6                       accdb利用による高速化(使用しない)                       
+'               1.1.6       2015/11/02      accdbﾌｫﾙﾀﾞ場所変更 切替機能追加
+'               1.1.8       2015/11/24      ページ表示位置変更
+'               1.2.0                       終了処理
+'               1.2.1       2015/12/02      Windows終了へ変更
+'               2.0.0       2016/11/17      ｲｴﾛｰｶｰﾄﾞ/修理ｶｰﾄﾞ/ﾜﾝﾎﾟｲﾝﾄ対応
+'               2.0.3       2017/01/09      新旧タイプ同時併用バージョン
+'               2.0.7       2017/02/22      手動対応機能追加 マウス操作による作業
+'               2.1.0       2017/04/05      PDF表示修正
+'               2.1.1       2017/04/14      手動表示後修正
+'               2.1.2       2018/01/12      USBポート自動接続 (DENSO WAVE Active USB-COM Port)
+'      
+'
+'
+Imports Npgsql
+Imports System.Xml
+Imports System.IO.Ports
+Imports System.Net
+
+Imports System.Management
+
+Public Class Form1
+
+    Dim PdfPath As String
+
+    Dim cn1 As New NpgsqlConnection
+    Dim cn2 As New NpgsqlConnection
+    Dim cna1 As New OleDb.OleDbConnection           'accdb
+
+    Dim DIP As String               'DB_IPAddress
+    Dim DBN As String               'DB_Name
+    Dim DBP As String               'DB_Port
+    Dim CMP As String               'AT-26Q COMPORT
+
+    Dim PPH As String               'ServerPDF保管場所
+    Dim PFNAME As String            '表示しているPDF
+
+    Dim Nkata As String             '表示している金型NO
+    Dim KNO As String               '作業工程
+
+    'SerialPort
+    Dim blockbuf As String
+
+    'Page位置
+    Dim NPage As Integer            '現在表示位置
+    Dim Tpage As Integer            '総ページ数
+    Dim P1 As Integer               'デポ指示書
+    Dim P2 As Integer               'ｲｴﾛｰｶｰﾄﾞ
+    Dim P3 As Integer               '修理ｶｰﾄﾞ
+    Dim P4 As Integer               'ﾜﾝﾎﾟｲﾝﾄ
+    Dim P5 As Integer               '作業指示書
+    Dim CFLG As Boolean = False     '結合フラグ true:有 
+
+    'IPaddress
+    Dim CPN As String
+    Dim iPhost As IPHostEntry
+    Dim CIP As IPAddress
+
+    'accdb切替
+    Dim Accflg As String
+
+    '起動時設定
+    Private Sub Form1_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+
+        '2重起動防止
+        Dim pn As String = Process.GetCurrentProcess.ProcessName
+        If Process.GetProcessesByName(pn).GetUpperBound(0) > 0 Then
+            Me.Close()
+        End If
+        '起動パス
+        Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+        Dim PDFP = System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+        PdfPath = PDFP & "\Displaykata"
+
+        '2015/11/02 ﾌｫﾙﾀﾞﾊﾟｽ変更
+        PdfPath = "C:\Displaykata"
+
+        'MakeFolder
+        If System.IO.Directory.Exists(PdfPath) = False Then
+            System.IO.Directory.CreateDirectory(PdfPath)
+            System.Threading.Thread.Sleep(500)
+            'access copy
+            System.IO.File.Copy(Application.StartupPath & "\kpdf.accdb", PdfPath & "\kpdf.accdb")
+            System.Threading.Thread.Sleep(500)
+        End If
+
+        '初期設定
+        AxAcroPDF2.Visible = False
+        AxAcroPDF2.LoadFile(stCurrentDir & "\" & "default.pdf")
+        'サイズテスト
+        'AxAcroPDF2.LoadFile(stCurrentDir & "\" & "sample.pdf")
+
+        AxAcroPDF2.setShowScrollbars(False)
+        AxAcroPDF2.Visible = True
+
+        Timer1.Enabled = True
+        Timer1.Interval = 60000
+
+        Call Initialization()
+        System.Threading.Thread.Sleep(1000)
+        Call AC_Connect()
+        Call DB_Connect()
+        '2018/01/12
+        Call Init_DENSO_USB_COM_Port()
+        Call COM_Connect()
+
+        'kataPDF COPY 自動更新
+        Call PDFcopy01()
+
+        If Accflg = "1" Then
+            'accdb_table 更新
+            Call Accdb_Copy()
+        End If
+
+        TextBox1.Text = ""
+        NPage = 0
+        Tpage = 0
+        PFNAME = ""
+        Nkata = ""
+
+        Button3.Enabled = False
+        Button4.Enabled = False
+        Button5.Enabled = False
+        Button6.Enabled = False
+        Button7.Enabled = False
+
+        TextBox4.Text = KNO
+        TextBox4.Enabled = False
+
+        Label1.Visible = False
+        TextBox1.Visible = False
+
+        Me.FormBorderStyle = FormBorderStyle.None
+
+        '使用ログ用
+        CPN = Dns.GetHostName
+        iPhost = System.Net.Dns.GetHostEntry(CPN)
+        CIP = iPhost.AddressList(0)
+        'IPV4
+        Dim iphEntry As IPHostEntry = System.Net.Dns.GetHostEntry(CPN)
+        For Each ipaddr As IPAddress In iphEntry.AddressList
+            If ipaddr.AddressFamily = Sockets.AddressFamily.InterNetwork Then
+                CIP = ipaddr
+                Exit For
+            End If
+        Next
+        '不要ログ
+        Call LogDelete()
+
+        '手動操作用
+        Panel1.Location = New Point(780, 1015)
+        Panel1.Visible = False
+        Call Init_Combobox1()
+        ComboBox2.Items.Clear()
+        ComboBox3.Items.Clear()
+        ComboBox2.Text = ""
+        ComboBox3.Text = ""
+
+
+    End Sub
+    'フォーム位置固定
+    '    Protected Overrides Sub WndProc(ByRef m As Message)
+    '    Const WM_SYSCOMMAND As Integer = &H112
+    '   Const SC_MOVE As Long = &HF010L
+    '        If m.Msg = WM_SYSCOMMAND AndAlso _
+    '            (m.WParam.ToInt64() And &HFFF0L) = SC_MOVE Then
+    '            m.Result = IntPtr.Zero
+    '            Return
+    '        End If
+    '        MyBase.WndProc(m)
+    '    End Sub
+
+    '必要変数取得 INI.XML
+    Private Sub Initialization()
+        Try
+            'INI.XMLから設定取得
+            Dim MyPath As String = Application.StartupPath
+            Dim iniFileName As String = "INI.xml"
+            If MyPath.EndsWith("\") = False Then
+                MyPath &= "\"
+            End If
+            iniFileName = MyPath & iniFileName
+
+            '指定したXMLファイルの読み込み
+            Dim xmlDoc As New System.Xml.XmlDocument
+            xmlDoc.Load(iniFileName)
+            Dim rootElement As System.Xml.XmlElement = xmlDoc.DocumentElement
+            Dim node As System.Xml.XmlNodeList = rootElement.GetElementsByTagName("db_name")
+
+            '指定したタグが存在するか？
+            If node.Count > 0 Then
+                DBN = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("db_port")
+            If node.Count > 0 Then
+                DBP = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("db_ip")
+            If node.Count > 0 Then
+                DIP = node.Item(0).InnerText
+            End If
+
+            'node = rootElement.GetElementsByTagName("usb_port")
+            'If node.Count > 0 Then
+            'CMP = node.Item(0).InnerText
+            'End If
+
+            node = rootElement.GetElementsByTagName("ppath")
+            If node.Count > 0 Then
+                PPH = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("acconect")
+            If node.Count > 0 Then
+                Accflg = node.Item(0).InnerText
+            End If
+
+            node = rootElement.GetElementsByTagName("koutei")
+            If node.Count > 0 Then
+                KNO = node.Item(0).InnerText
+            End If
+
+        Catch ex As Exception
+            Call ErrLOG("Initialization", "")
+            End
+        End Try
+    End Sub
+    'Connect DB(Postgresql)
+    Private Sub DB_Connect()
+        Dim ConStr As String
+        Try
+            'DB登録
+            ConStr = ("Server=" & DIP & ";Port=" & DBP.ToString & ";User id=postgres;Password=postgres;Database=" & DBN.ToString & ";")
+            cn1.ConnectionString = ConStr
+            cn2.ConnectionString = ConStr
+            cn1.Open()
+            cn1.Close()
+            'Connect OK
+
+        Catch ex As Exception
+            Call ErrLOG("DB_Connect", "")
+        End Try
+    End Sub
+    'Access接続
+    Private Sub AC_Connect()
+        Dim ConStr As String
+
+        Try
+            ConStr = String.Format("Provider=Microsoft.ACE.OLEDB.12.0;" & "Data Source=" & PdfPath & "\kpdf.accdb;")
+            cna1.ConnectionString = ConStr
+            '接続テスト
+            cna1.Open()
+            cna1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("AC_Connect", "")
+        End Try
+    End Sub
+    'エラーログを書き出す
+    Public Sub ErrLOG(ByVal C1 As String, ByVal C2 As String)
+
+        Dim FileName As String
+        Dim WS As System.IO.StreamWriter
+
+        Try
+            FileName = PdfPath & "\errlog.txt"
+            WS = System.IO.File.AppendText(FileName)
+            WS.WriteLine(C1 & ":" & C2 & ":" & Format(Now, "yyyy/MM/dd HH:mm:ss"))
+            WS.Close()
+        Catch ex As Exception
+            End
+        End Try
+    End Sub
+    'COMポート確認
+
+    'DENSO WAVE Active USB-COM Port 取得
+    Private Sub Init_DENSO_USB_COM_Port()
+
+        Dim mcW32SerPort As New ManagementClass("Win32_SerialPort")
+        Dim aSerialPort As ManagementObject
+        Dim dCOM As String
+
+        For Each aSerialPort In mcW32SerPort.GetInstances()
+            Console.WriteLine(DirectCast(aSerialPort.GetPropertyValue("DeviceID"), String) & ":" & DirectCast(aSerialPort.GetPropertyValue("Caption"), String))
+            'DENSO WAVE Active USB-COM Port 検索 AND Conneced検索
+            dCOM = DirectCast(aSerialPort.GetPropertyValue("DeviceID"), String) & ":" & DirectCast(aSerialPort.GetPropertyValue("Caption"), String)
+
+            If 0 <= dCOM.IndexOf("DENSO WAVE Active USB-COM Port") Then
+                If 0 <= dCOM.IndexOf("Connected") Then
+                    '接続ポート
+                    CMP = Strings.Left(dCOM, 4)
+                    Exit Sub
+                Else
+
+                End If
+            Else
+            End If
+        Next
+        CMP = ""
+
+    End Sub
+
+    Private Sub COM_Connect()
+
+        Try
+            If CMP <> "" Then
+                '19200,N,8,1 通信設定
+                With SerialPort1
+                    .PortName = CMP
+                    .BaudRate = 19200
+                    .DataBits = 8
+                    .Parity = Parity.None
+                    .StopBits = StopBits.One
+                    .Handshake = Handshake.None
+                    .ReceivedBytesThreshold = 2
+                    .ReadTimeout = 10000
+                    .WriteTimeout = 10000
+
+                    .DtrEnable = True
+                    .RtsEnable = True
+                End With
+
+                If SerialPort1.IsOpen = False Then
+                    SerialPort1.Open()
+                    SerialPort1.DiscardInBuffer()
+                    SerialPort1.DiscardOutBuffer()
+                End If
+            Else
+                MessageBox.Show(" QRコードリーダーの接続が確認できません　", "警告", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            End If
+
+        Catch ex As Exception
+            Call ErrLOG("COM_Connect", "")
+            MessageBox.Show(" ハンディターミナルが接続されていません??　", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+
+    End Sub
+    Private Sub COM_DisConnect()
+        If SerialPort1.IsOpen = True Then
+            SerialPort1.Close()
+        End If
+    End Sub
+    '----------------------------------------------------------------------------------------------------------------------------------------
+    Private Sub SerialPort1_DataReceived(sender As Object, e As System.IO.Ports.SerialDataReceivedEventArgs) Handles SerialPort1.DataReceived
+
+        If SerialPort1.IsOpen = False Then
+            Return
+        End If
+        System.Threading.Thread.Sleep(500)
+        'Clear
+        blockbuf = ""
+        Do
+            Dim returnStr As String = SerialPort1.ReadExisting()
+            blockbuf &= returnStr.ToString
+
+            If SerialPort1.BytesToRead = 0 Then
+                SerialPort1.DiscardInBuffer()
+                SerialPort1.DiscardOutBuffer()
+                Exit Do
+            End If
+        Loop
+
+        '表示対応
+        If Strings.Left(blockbuf, 2) = "DK" Then
+            '手動モード確認
+            If Panel1.Visible = True Then
+                Panel1.Visible = False
+                TextBox5.Text = ""
+
+                TextBox1.Text = ""
+                NPage = 0
+                Tpage = 0
+                PFNAME = ""
+                Nkata = ""
+
+                Button3.Enabled = False
+                Button4.Enabled = False
+                Button5.Enabled = False
+                Button6.Enabled = False
+                Button7.Enabled = False
+
+                TextBox4.Text = KNO
+                TextBox4.Enabled = False
+
+                Label1.Visible = False
+                TextBox1.Visible = False
+            End If
+
+            If Accflg = "0" Then
+                '金型シート serverから検索
+                Call DataMake01(blockbuf)
+            Else
+                'accdb への検索 2015/11/02
+                Call DataMake11(blockbuf)
+            End If
+        ElseIf Strings.Left(blockbuf, 2) = "CC" Then
+            'ページ変更他
+            Call DataMake02(blockbuf)
+        Else
+
+        End If
+
+    End Sub
+    '金型シート情報検索
+    Private Sub DataMake01(kata As String)
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+        Dim Num As Integer
+
+        Try
+            If Nkata = Strings.Mid(kata, 3, 5) Then
+                Exit Sub
+            Else
+                '処理中_金型
+                Nkata = Strings.Mid(kata, 3, 5)
+            End If
+
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM master_die_pdf "
+            strSQL = strSQL + "WHERE katano='" & Strings.Mid(kata, 3, 5) & "' AND koutei='" & KNO & "' "
+            strSQL = strSQL + "AND dflg='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+
+            If Num = 0 Then
+                'MessageBox.Show("", "警告", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                PFNAME = ""
+
+                TextBox1.Text = ""
+                NPage = 0
+                Tpage = 0
+                PFNAME = ""
+                Nkata = ""
+
+                Button3.Enabled = False
+                Button4.Enabled = False
+                Button5.Enabled = False
+                Button6.Enabled = False
+                Button7.Enabled = False
+
+                TextBox4.Text = KNO
+                TextBox4.Enabled = False
+
+                Label1.Visible = False
+                TextBox1.Visible = False
+
+                If Panel1.Visible = True Then
+                    Panel1.Visible = False
+
+                    TextBox5.Text = ""
+
+                    TextBox1.Text = ""
+                    NPage = 0
+                    Tpage = 0
+                    PFNAME = ""
+                    Nkata = ""
+
+                    Button3.Enabled = False
+                    Button4.Enabled = False
+                    Button5.Enabled = False
+                    Button6.Enabled = False
+                    Button7.Enabled = False
+
+                    TextBox4.Text = KNO
+                    TextBox4.Enabled = False
+
+                    Label1.Visible = False
+                    TextBox1.Visible = False
+
+                End If
+
+                '該当データなし
+                Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+                AxAcroPDF2.LoadFile(stCurrentDir & "\" & "default.pdf")
+                AxAcroPDF2.setShowScrollbars(False)
+                AxAcroPDF2.setShowToolbar(False)
+                Label1.Visible = False
+
+                Exit Sub
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM master_die_pdf "
+            strSQL = strSQL + "WHERE katano='" & Strings.Mid(kata, 3, 5) & "' AND koutei='" & KNO & "' "
+            strSQL = strSQL + "AND dflg='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            rs.Read()
+
+            '結合PDFの有無調査
+            If rs("compage") <> 0 Then
+                CFLG = True
+                'ファイル名
+                PFNAME = rs("compdf").ToString
+
+                P1 = rs("tpage")
+
+                If IsDBNull(rs("ytpage")) Then
+                    P2 = 0
+                Else
+                    P2 = rs("ytpage")
+                End If
+
+                If IsDBNull(rs("rtpage")) Then
+                    P3 = 0
+                Else
+                    P3 = rs("rtpage")
+                End If
+
+                If IsDBNull(rs("otpage")) Then
+                    P4 = 0
+                Else
+                    P4 = rs("otpage")
+                End If
+
+                If IsDBNull(rs("prtpage")) Then
+                    P5 = 0
+                Else
+                    P5 = rs("prtpage")
+                End If
+
+                'トータルページ数
+                Tpage = rs("compage")
+            Else
+                CFLG = False
+                PFNAME = rs("pfname").ToString
+                Tpage = rs("tpage")
+
+                P2 = 0
+                P3 = 0
+                P4 = 0
+                P5 = 0
+
+            End If
+
+            rs.Close()
+            cn1.Close()
+
+            'local　ファイル有無確認
+            '必要に応じてServerからCOPY
+            If System.IO.File.Exists(PdfPath & "\" & PFNAME) = False Then
+                If System.IO.File.Exists(PPH & "\" & PFNAME) = False Then
+                    Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+                    PFNAME = stCurrentDir & "\" & "default.pdf"
+                Else
+                    Call PDFcopy02(PFNAME)
+                End If
+            End If
+
+            '表示
+            TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), Strings.Mid(kata, 3, 5))
+            NPage = 1
+
+            Call UseLog(Strings.Mid(kata, 3, 5))
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake01", "")
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+        End Try
+
+    End Sub
+    Delegate Sub dlgWriteTxt(ByVal txt As String)
+    Public Sub WriteTxt1(ByVal txt As String)
+
+        TextBox1.Text = txt
+
+        If txt <> "00000" Then
+
+            AxAcroPDF2.LoadFile(PdfPath & "\" & PFNAME)
+
+            'FirstPage
+            AxAcroPDF2.gotoFirstPage()
+            'AxAcroPDF2.LoadFile(PPH & "\" & PFNAME)
+            AxAcroPDF2.setShowScrollbars(False)
+            AxAcroPDF2.setShowToolbar(False)
+            Label1.Text = " 1 / " & CStr(Tpage)
+            Label1.Visible = True
+
+            'AxAcroPDF2.setZoomScroll(110, 0, 0)
+
+            'Button表示
+            'ｲｴﾛｰｶｰﾄﾞ
+            If P2 = 0 Then
+                Button3.Visible = False
+            Else
+                Button3.Enabled = True
+                Button3.Visible = True
+            End If
+            '修理ｶｰﾄﾞ
+            If P3 = 0 Then
+                Button4.Visible = False
+            Else
+                Button4.Enabled = True
+                Button4.Visible = True
+            End If
+            'デポ指示書
+            If P1 = 0 Then
+                'Impossible
+                Button5.Visible = False
+            Else
+                Button5.Enabled = True
+                Button5.Visible = True
+            End If
+            'ﾜﾝﾎﾟｲﾝﾄ
+            If P4 = 0 Then
+                Button6.Visible = False
+            Else
+                Button6.Enabled = True
+                Button6.Visible = True
+            End If
+            '作業指示書
+            If P5 = 0 Then
+                Button7.Visible = False
+            Else
+                Button7.Enabled = True
+                Button7.Visible = True
+            End If
+
+        Else
+            Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+            AxAcroPDF2.LoadFile(stCurrentDir & "\" & "default.pdf")
+            AxAcroPDF2.setShowScrollbars(False)
+            AxAcroPDF2.setShowToolbar(False)
+            Label1.Visible = False
+        End If
+
+
+    End Sub
+    'ページ設定他
+    Private Sub DataMake02(BLK As String)
+
+        Dim CC As String
+
+        Try
+            'get command
+            CC = Strings.Mid(BLK, 3, 2)
+
+            If PFNAME = "" Then
+                'ｽﾀｰﾄ画面
+                If CC = "97" Then
+                    TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), "00000")
+
+                    '手動モード確認
+                    If Panel1.Visible = True Then
+                        Panel1.Visible = False
+                        TextBox5.Text = ""
+
+                        TextBox1.Text = ""
+                        NPage = 0
+                        Tpage = 0
+                        PFNAME = ""
+                        Nkata = ""
+
+                        Button3.Enabled = False
+                        Button4.Enabled = False
+                        Button5.Enabled = False
+                        Button6.Enabled = False
+                        Button7.Enabled = False
+
+                        TextBox4.Text = KNO
+                        TextBox4.Enabled = False
+
+                        Label1.Visible = False
+                        TextBox1.Visible = False
+                    End If
+
+                End If
+                'accdb最新へ
+                If CC = "98" Then
+                    Call Accdb_Copy()
+                    Call PDFcopy01()
+                    TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), "00000")
+
+                    '手動モード確認
+                    If Panel1.Visible = True Then
+                        Panel1.Visible = False
+                        TextBox5.Text = ""
+
+                        TextBox1.Text = ""
+                        NPage = 0
+                        Tpage = 0
+                        PFNAME = ""
+                        Nkata = ""
+
+                        Button3.Enabled = False
+                        Button4.Enabled = False
+                        Button5.Enabled = False
+                        Button6.Enabled = False
+                        Button7.Enabled = False
+
+                        TextBox4.Text = KNO
+                        TextBox4.Enabled = False
+
+                        Label1.Visible = False
+                        TextBox1.Visible = False
+                    End If
+
+                End If
+                '終了
+                If CC = "99" Then
+                    End
+                End If
+                Exit Sub
+            End If
+
+            Select Case CC
+                Case "01"
+                    'nextpage
+                    If NPage = Tpage Then
+                        Exit Sub
+                    End If
+                    '次ページ
+                    NPage = NPage + 1
+                    'AxAcroPDF1.gotoNextPage()
+                    TextBox2.Invoke(New dlgWriteTxt(AddressOf WriteTxt2), CStr(NPage))
+
+                Case "02"
+                    'beforepage
+                    If NPage = 1 Then
+                        Exit Sub
+                    End If
+                    '前ページ
+                    NPage = NPage - 1
+                    'AxAcroPDF1.gotoPreviousPage()
+                    TextBox3.Invoke(New dlgWriteTxt(AddressOf WriteTxt3), CStr(NPage))
+
+                    '以下未使用
+                Case "03"
+                    'firstpage
+                    'AxAcroPDF1.gotoFirstPage()
+                    NPage = 1
+
+                Case "97"
+                    'ｽﾀｰﾄ画面
+                    TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), "00000")
+
+                    '手動モード確認
+                    If Panel1.Visible = True Then
+                        TextBox5.Invoke(New dlgWriteTxt(AddressOf WriteTxt5), "")
+
+                        NPage = 0
+                        Tpage = 0
+                        PFNAME = ""
+                        Nkata = ""
+
+                        Button3.Enabled = False
+                        Button4.Enabled = False
+                        Button5.Enabled = False
+                        Button6.Enabled = False
+                        Button7.Enabled = False
+
+                        TextBox4.Invoke(New dlgWriteTxt(AddressOf WriteTxt4), KNO)
+                        TextBox4.Enabled = False
+                    End If
+                Case "98"
+                    'accdb 更新
+                    Call Accdb_Copy()
+                    Call PDFcopy01()
+                    TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), "00000")
+
+                    '手動モード確認
+                    If Panel1.Visible = True Then
+                        TextBox5.Invoke(New dlgWriteTxt(AddressOf WriteTxt5), "")
+
+                        TextBox1.Text = ""
+                        NPage = 0
+                        Tpage = 0
+                        PFNAME = ""
+                        Nkata = ""
+
+                        Button3.Enabled = False
+                        Button4.Enabled = False
+                        Button5.Enabled = False
+                        Button6.Enabled = False
+                        Button7.Enabled = False
+
+                        TextBox4.Invoke(New dlgWriteTxt(AddressOf WriteTxt4), KNO)
+                        TextBox4.Enabled = False
+                    End If
+                Case "99"
+                    'END
+                    End
+                Case Else
+
+            End Select
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake02", "")
+        End Try
+    End Sub
+    'Nextpage
+    Public Sub WriteTxt2(ByVal txt As String)
+        TextBox2.Text = txt
+        AxAcroPDF2.gotoNextPage()
+
+        Label1.Text = " " & CStr(NPage) & " / " & CStr(Tpage)
+
+        If P2 <> 0 Then
+            If P3 <> 0 Then
+                If P2 + 1 = NPage Then
+                    '修理ｶｰﾄﾞ 
+                    AxAcroPDF2.setZoom(110)
+                ElseIf P2 + P3 + 1 = NPage Then
+                    'デポ指示書 1ページ目
+                    AxAcroPDF2.setZoom(61)
+                ElseIf P2 + P3 + 1 < NPage And P2 + P3 + P1 + 1 > NPage Then
+                    '複数ページ対応
+                    AxAcroPDF2.setZoom(61)
+                ElseIf P2 + P3 + P1 + 1 = NPage Then
+                    'ﾜﾝﾎﾟｲﾝﾄ
+                    AxAcroPDF2.setZoom(110)
+                ElseIf P5 <> 0 Then
+                    '作業指示書
+                    AxAcroPDF2.setZoom(110)
+                End If
+            Else
+
+            End If
+        Else
+
+        End If
+
+    End Sub
+    'Previouspage
+    Public Sub WriteTxt3(ByVal txt As String)
+        TextBox3.Text = txt
+        AxAcroPDF2.gotoPreviousPage()
+
+        Label1.Text = " " & CStr(NPage) & " / " & CStr(Tpage)
+
+        If P2 <> 0 Then
+            If P3 <> 0 Then
+                If NPage = 1 Then
+                    '先頭ページ
+                    If P2 <> 0 Then
+                        'ｲｴﾛｰｶｰﾄﾞ
+                        AxAcroPDF2.setZoom(110)
+                    End If
+                    If P2 = 0 And P3 <> 0 Then
+                        '修理ｶｰﾄﾞ
+                        AxAcroPDF2.setZoom(110)
+                    End If
+                    If P2 = 0 And P3 = 0 Then
+                        'デポ指示書
+                        AxAcroPDF2.setZoom(61)
+                    End If
+                ElseIf P2 + 1 = NPage Then
+                    '修理ｶｰﾄﾞ
+                    AxAcroPDF2.setZoomScroll(110, 0, 0)
+                ElseIf P2 + P3 + 1 = NPage Then
+                    'デポ指示書
+                    AxAcroPDF2.setZoom(61)
+                ElseIf P2 + P3 + 1 < NPage And P2 + P3 + P1 + 1 > NPage Then
+                    '複数ページ対応
+                    AxAcroPDF2.setZoom(61)
+                ElseIf P2 + P3 + P1 + 1 = NPage <> 0 Then
+                    'ﾜﾝﾎﾟｲﾝﾄ
+                    AxAcroPDF2.setZoom(110)
+                ElseIf P5 <> 0 Then
+                    '作業指示書
+                    AxAcroPDF2.setZoom(110)
+
+                End If
+            Else
+
+            End If
+        Else
+
+        End If
+
+    End Sub
+    'PDF Local ALLCopy
+    Private Sub PDFcopy01()
+
+        Dim MPDF As String = String.Empty
+
+        Try
+            ' 拡張子が .txt のファイルを列挙する
+            For Each stFilePath As String In System.IO.Directory.GetFiles(PPH & "\", "*.pdf")
+                'FileName
+                MPDF = System.IO.Path.GetFileName(stFilePath)
+                'localに存在しない場合はCOPY
+                If System.IO.File.Exists(PdfPath & "\" & MPDF) = False Then
+                    'copy
+                    System.IO.File.Copy(PPH & "\" & MPDF, PdfPath & "\" & MPDF, True)
+                    System.Threading.Thread.Sleep(100)
+                End If
+            Next stFilePath
+        Catch ex As Exception
+            Call ErrLOG("PDFcopy01", "")
+        End Try
+    End Sub
+    'PDF Local OneCopy
+    Private Sub PDFcopy02(PN As String)
+        Try
+            'copy
+            System.IO.File.Copy(PPH & "\" & PN, PdfPath & "\" & PN, True)
+            System.Threading.Thread.Sleep(100)
+        Catch ex As Exception
+            Call ErrLOG("PDFcopy02", "")
+        End Try
+    End Sub
+
+    Public Sub WriteTxt4(ByVal txt As String)
+        TextBox4.Text = txt
+    End Sub
+    Public Sub WriteTxt5(ByVal txt As String)
+        TextBox5.Text = txt
+        Panel1.Visible = False
+        Label1.Visible = False
+        TextBox1.Visible = False
+
+    End Sub
+
+    '---------------------------------------------------------------------------------------------------------------------------
+    '使用ログ
+    Private Sub UseLog(Kata As String)
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+
+        Try
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "INSERT INTO katapdf_log("
+            strSQL = strSQL + "katano,"
+            strSQL = strSQL + "pcip,"
+            strSQL = strSQL + "usedate,"
+            strSQL = strSQL + "usetime"
+            strSQL = strSQL + ")VALUES("
+            strSQL = strSQL + "'" & Kata & "',"
+            strSQL = strSQL + "'" & CIP.ToString & "',"
+            strSQL = strSQL + "'" & Format(Now, "yyyyMMdd") & "',"
+            strSQL = strSQL + "'" & Format(Now, "HHmmss") & "'"
+            strSQL = strSQL + ")"
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            cm.ExecuteNonQuery()
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("UseLog", "")
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+        End Try
+    End Sub
+    '不要ログ削除
+    Private Sub LogDelete()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+
+        Dim dfdate1 As String
+
+        Try
+            Dim dtBirth As DateTime = DateTime.Parse(Format(Now, "yyyy/MM/dd"))
+            dtBirth = dtBirth.AddMonths(-3)
+            dfdate1 = Format(dtBirth, "yyyyMMdd").ToString
+
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            'katapdf_log
+            strSQL = ""
+            strSQL = strSQL + "DELETE FROM katapdf_log "
+            strSQL = strSQL + "WHERE usedate<'" & dfdate1 & "' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            cm.ExecuteNonQuery()
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("logdelete", "")
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+        End Try
+
+    End Sub
+    '---------------------------------------------------------------------------------------------------------------------------
+    'Accdb利用バージョン
+    Private Sub Accdb_Copy()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+        Dim Num As Integer
+
+        Dim cma As OleDb.OleDbCommand
+
+        Try
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+            If cna1.State = ConnectionState.Open = True Then
+                cna1.Close()
+            End If
+
+            '最新版のみ
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM master_die_pdf "
+            strSQL = strSQL + "WHERE dflg='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+            If Num = 0 Then
+                Exit Sub
+            Else
+                'accdb master_die_pdf 削除
+                strSQL = ""
+                strSQL = strSQL + "DELETE FROM master_die_pdf"
+                cna1.Open()
+                cma = New OleDb.OleDbCommand
+                cma.Connection = cna1
+                cma.CommandText = strSQL
+                cma.ExecuteNonQuery()
+                cna1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM master_die_pdf "
+            strSQL = strSQL + "WHERE dflg='0' "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+
+            cna1.Open()
+            While (rs.Read())
+                strSQL = ""
+                strSQL = strSQL + "INSERT INTO master_die_pdf("
+                strSQL = strSQL + "katano,"
+                strSQL = strSQL + "pfname,"
+                strSQL = strSQL + "dflg,"
+                strSQL = strSQL + "tpage,"
+                strSQL = strSQL + "udate,"
+                strSQL = strSQL + "utime,"
+                strSQL = strSQL + "koutei,"
+                strSQL = strSQL + "ypfname,"
+                strSQL = strSQL + "ydflg,"
+                strSQL = strSQL + "yudate,"
+                strSQL = strSQL + "yutime,"
+                strSQL = strSQL + "ytpage,"
+                strSQL = strSQL + "rpfname,"
+                strSQL = strSQL + "rdflg,"
+                strSQL = strSQL + "rudate,"
+                strSQL = strSQL + "rutime,"
+                strSQL = strSQL + "rtpage,"
+                strSQL = strSQL + "opfname,"
+                strSQL = strSQL + "odflg,"
+                strSQL = strSQL + "oudate,"
+                strSQL = strSQL + "outime,"
+                strSQL = strSQL + "otpage,"
+                strSQL = strSQL + "compdf,"
+                strSQL = strSQL + "compage,"
+                strSQL = strSQL + "allupdate,"
+                strSQL = strSQL + "allutime,"
+
+                strSQL = strSQL + "prpfname,"
+                strSQL = strSQL + "prdflg,"
+                strSQL = strSQL + "prudate,"
+                strSQL = strSQL + "prutime,"
+                strSQL = strSQL + "prtpage"
+
+                strSQL = strSQL + ")VALUES("
+                strSQL = strSQL + "'" & rs("katano").ToString & "',"
+                strSQL = strSQL + "'" & rs("pfname").ToString & "',"
+                strSQL = strSQL + "'" & "0" & "',"
+                strSQL = strSQL + "" & rs("tpage") & ","
+                strSQL = strSQL + "'" & rs("udate").ToString & "',"
+                strSQL = strSQL + "'" & rs("utime").ToString & "',"
+                strSQL = strSQL + "'" & rs("koutei").ToString & "',"
+                strSQL = strSQL + "'" & rs("ypfname").ToString & "',"
+                strSQL = strSQL + "'" & rs("ydflg").ToString & "',"
+                strSQL = strSQL + "'" & rs("yudate").ToString & "',"
+                strSQL = strSQL + "'" & rs("yutime").ToString & "',"
+                If IsDBNull(rs("ytpage")) Then
+                    strSQL = strSQL + "" & "0" & ","
+                Else
+                    strSQL = strSQL + "" & rs("ytpage") & ","
+                End If
+                strSQL = strSQL + "'" & rs("rpfname").ToString & "',"
+                strSQL = strSQL + "'" & rs("rdflg").ToString & "',"
+                strSQL = strSQL + "'" & rs("rudate").ToString & "',"
+                strSQL = strSQL + "'" & rs("rutime").ToString & "',"
+                If IsDBNull(rs("rtpage")) Then
+                    strSQL = strSQL + "" & "0" & ","
+                Else
+                    strSQL = strSQL + "" & rs("rtpage") & ","
+                End If
+                strSQL = strSQL + "'" & rs("opfname").ToString & "',"
+                strSQL = strSQL + "'" & rs("odflg").ToString & "',"
+                strSQL = strSQL + "'" & rs("oudate").ToString & "',"
+                strSQL = strSQL + "'" & rs("outime").ToString & "',"
+                If IsDBNull(rs("otpage")) Then
+                    strSQL = strSQL + "" & "0" & ","
+                Else
+                    strSQL = strSQL + "" & rs("otpage") & ","
+                End If
+                strSQL = strSQL + "'" & rs("compdf").ToString & "',"
+                If IsDBNull(rs("compage")) Then
+                    strSQL = strSQL + "" & "0" & ","
+                Else
+                    strSQL = strSQL + "" & rs("compage") & ","
+                End If
+
+                If IsDBNull(rs("allupdate").ToString) Then
+                    strSQL = strSQL + "'" & "" & "',"
+                Else
+                    strSQL = strSQL + "'" & rs("allupdate").ToString & "',"
+                End If
+
+                If IsDBNull(rs("allutime").ToString) Then
+                    strSQL = strSQL + "'" & "" & "',"
+                Else
+                    strSQL = strSQL + "'" & rs("allutime").ToString & "',"
+                End If
+
+                '作業指示書
+                strSQL = strSQL + "'" & rs("prpfname").ToString & "',"
+                strSQL = strSQL + "'" & rs("prdflg").ToString & "',"
+                strSQL = strSQL + "'" & rs("prudate").ToString & "',"
+                strSQL = strSQL + "'" & rs("prutime").ToString & "',"
+                If IsDBNull(rs("prtpage")) Then
+                    strSQL = strSQL + "" & "0" & ""
+                Else
+                    strSQL = strSQL + "" & rs("prtpage") & ""
+                End If
+
+                strSQL = strSQL + ")"
+                cma = New OleDb.OleDbCommand
+                cma.Connection = cna1
+                cma.CommandText = strSQL
+                cma.ExecuteNonQuery()
+            End While
+            cna1.Close()
+            cn1.Close()
+
+        Catch ex As Exception
+            Call ErrLOG("Accdb_Copy", "")
+        End Try
+    End Sub
+    '検索先 accdbバージョン
+    Private Sub DataMake11(kata As String)
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+        Dim rsa As OleDb.OleDbDataReader
+        Dim Num As Integer
+
+        Try
+            If Nkata = Strings.Mid(kata, 3, 5) Then
+                Exit Sub
+            Else
+                '処理中_金型
+                Nkata = Strings.Mid(kata, 3, 5)
+            End If
+
+            If cna1.State = ConnectionState.Open = True Then
+                cna1.Close()
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM master_die_pdf "
+            strSQL = strSQL + "WHERE katano='" & Strings.Mid(kata, 3, 5) & "' AND koutei='" & KNO & "' "
+            strSQL = strSQL + "AND dflg='0' "
+            cna1.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna1
+            cma.CommandText = strSQL
+            Num = cma.ExecuteScalar
+            cna1.Close()
+
+            If Num = 0 Then
+                'MessageBox.Show("", "警告", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                PFNAME = ""
+
+                TextBox1.Text = ""
+                NPage = 0
+                Tpage = 0
+                PFNAME = ""
+                Nkata = ""
+
+                Button3.Enabled = False
+                Button4.Enabled = False
+                Button5.Enabled = False
+                Button6.Enabled = False
+                Button7.Enabled = False
+
+                TextBox4.Text = KNO
+                TextBox4.Enabled = False
+
+                Label1.Visible = False
+                TextBox1.Visible = False
+
+                If Panel1.Visible = True Then
+                    Panel1.Visible = False
+
+                    TextBox5.Text = ""
+
+                    TextBox1.Text = ""
+                    NPage = 0
+                    Tpage = 0
+                    PFNAME = ""
+                    Nkata = ""
+
+                    Button3.Enabled = False
+                    Button4.Enabled = False
+                    Button5.Enabled = False
+                    Button6.Enabled = False
+                    Button7.Enabled = False
+
+                    TextBox4.Text = KNO
+                    TextBox4.Enabled = False
+
+                    Label1.Visible = False
+                    TextBox1.Visible = False
+
+                End If
+
+                '該当データなし
+                Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+                AxAcroPDF2.LoadFile(stCurrentDir & "\" & "default.pdf")
+                AxAcroPDF2.setShowScrollbars(False)
+                AxAcroPDF2.setShowToolbar(False)
+                Label1.Visible = False
+
+                Exit Sub
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM master_die_pdf "
+            strSQL = strSQL + "WHERE katano='" & Strings.Mid(kata, 3, 5) & "' AND koutei='" & KNO & "' "
+            strSQL = strSQL + "AND dflg='0' "
+            cna1.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna1
+            cma.CommandText = strSQL
+            rsa = cma.ExecuteReader
+            rsa.Read()
+
+            If rsa("compage") <> 0 Then
+                CFLG = True
+                'ファイル名
+                PFNAME = rsa("compdf").ToString
+                P1 = rsa("tpage")
+                P2 = rsa("ytpage")
+                P3 = rsa("rtpage")
+                P4 = rsa("otpage")
+                P5 = rsa("prtpage")
+
+                'トータルページ数
+                Tpage = rsa("compage")
+
+            Else
+                CFLG = False
+                PFNAME = rsa("pfname").ToString
+
+                P2 = 0
+                P3 = 0
+                P4 = 0
+                P5 = 0
+
+                Tpage = rsa("tpage")
+
+            End If
+            rsa.Close()
+            cna1.Close()
+
+            'local　ファイル有無確認
+            '必要に応じてServerからCOPY
+            If System.IO.File.Exists(PdfPath & "\" & PFNAME) = False Then
+                If System.IO.File.Exists(PPH & "\" & PFNAME) = False Then
+                    Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+                    PFNAME = stCurrentDir & "\" & "default.pdf"
+                Else
+                    Call PDFcopy02(PFNAME)
+                End If
+            End If
+
+            '表示
+            TextBox1.Invoke(New dlgWriteTxt(AddressOf WriteTxt1), Strings.Mid(kata, 3, 5))
+            NPage = 1
+
+            'Call UseLog(Strings.Mid(kata, 3, 5))
+
+        Catch ex As Exception
+            Call ErrLOG("DataMake01", "")
+            If cna1.State = ConnectionState.Open = True Then
+                cna1.Close()
+            End If
+        End Try
+
+    End Sub
+    '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    'PDF自動更新機能 (再起動時以外)
+    Private Sub Update_Check()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+        Dim Num As Integer
+
+        Dim cma As OleDb.OleDbCommand
+
+        Dim MaxDate As String
+        Dim MaxTime As String
+
+        'Try
+        If cn1.State = ConnectionState.Open = True Then
+            cn1.Close()
+        End If
+        If cna1.State = ConnectionState.Open = True Then
+            cna1.Close()
+        End If
+
+        '最新PDF情報取得
+
+        strSQL = ""
+        strSQL = strSQL + "SELECT * FROM master_die_pdf "
+        strSQL = strSQL + "WHERE allupdate<>'' AND dflg='0' "
+        strSQL = strSQL + "ORDER BY allupdate DESC, allutime DESC"
+        cn1.Open()
+        cm = New NpgsqlCommand
+        cm.Connection = cn1
+        cm.CommandText = strSQL
+        rs = cm.ExecuteReader
+        rs.Read()
+        MaxDate = rs("allupdate").ToString
+        MaxTime = rs("allutime").ToString
+        rs.Close()
+        cn1.Close()
+
+        'accdb内チェック
+        strSQL = ""
+        strSQL = strSQL + "SELECT COUNT(*) FROM master_die_pdf "
+        strSQL = strSQL + "WHERE allupdate='" & MaxDate & "' AND allutime='" & MaxTime & "' "
+        cna1.Open()
+        cma = New OleDb.OleDbCommand
+        cma.Connection = cna1
+        cma.CommandText = strSQL
+        Num = cma.ExecuteScalar
+        cna1.Close()
+
+        If Num = 0 Then
+            '最新情報への更新が必要
+            Call Accdb_Copy()
+            Call Update_Accdb_PDF()
+        End If
+
+        'Catch ex As Exception
+        'Call ErrLOG("Update_Check", "")
+        'End Try
+
+    End Sub
+    Private Sub Update_Accdb_PDF()
+
+        Dim cma As OleDb.OleDbCommand
+        Dim strSQL As String
+        Dim rsa As OleDb.OleDbDataReader
+
+        Dim PFNAME As String
+
+        Try
+            If cna1.State = ConnectionState.Open = True Then
+                cna1.Close()
+            End If
+
+            'pdf copy
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM master_die_pdf "
+            cna1.Open()
+            cma = New OleDb.OleDbCommand
+            cma.Connection = cna1
+            cma.CommandText = strSQL
+            rsa = cma.ExecuteReader
+            While (rsa.Read())
+                PFNAME = rsa("pfname").ToString
+                If System.IO.File.Exists(PdfPath & "\" & PFNAME) = False Then
+                    Call PDFcopy02(PFNAME)
+                End If
+            End While
+            cna1.Close()
+
+            '不要なPDF削除機能
+
+
+
+        Catch ex As Exception
+            Call Update_Accdb_PDF()
+        End Try
+
+    End Sub
+    'OnTime_Check
+    Private Sub Timer1_Tick(sender As Object, e As System.EventArgs) Handles Timer1.Tick
+
+        Dim NT As String
+
+        'NT = Format(Now, "HH:mm")
+        'If NT = "08:00" Or NT = "21:00" Then
+        'Call Update_Check()
+        'End If
+
+        NT = Strings.Right(Format(Now, "mm"), 1)
+        If NT = "0" Or NT = "5" Then
+            Call Update_Check()
+        End If
+
+    End Sub
+    '2015/11/26
+    '終了処理確認
+    Private Sub Label1_Click(sender As Object, e As System.EventArgs) Handles Label1.Click
+        Dim result As DialogResult
+
+        result = MessageBox.Show(" DisplayKata を終了し,PCを電源OFFしますか？ ", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Question)
+        If result = Windows.Forms.DialogResult.OK Then
+            'End
+            AdjustToken()
+            ExitWindowsEx(ExitWindows.EWX_POWEROFF, 0)
+        End If
+
+    End Sub
+
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    'Windows終了処理
+    Public Enum ExitWindows
+        EWX_LOGOFF = &H0
+        EWX_SHUTDOWN = &H1
+        EWX_REBOOT = &H2
+        EWX_POWEROFF = &H8
+        EWX_RESTARTAPPS = &H40
+        EWX_FORCE = &H4
+        EWX_FORCEIFHUNG = &H10
+    End Enum
+    <System.Runtime.InteropServices.DllImport("user32.dll", SetLastError:=True)> _
+    Public Shared Function ExitWindowsEx(ByVal uFlags As ExitWindows, _
+    ByVal dwReason As Integer) As Boolean
+    End Function
+    <System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError:=True)> _
+    Private Shared Function GetCurrentProcess() As IntPtr
+    End Function
+    <System.Runtime.InteropServices.DllImport("advapi32.dll", SetLastError:=True)> _
+    Private Shared Function OpenProcessToken(ByVal ProcessHandle As IntPtr, _
+    ByVal DesiredAccess As Integer, _
+    ByRef TokenHandle As IntPtr) As Boolean
+    End Function
+    <System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError:=True)> _
+    Private Shared Function CloseHandle(ByVal hHandle As IntPtr) As Boolean
+    End Function
+    <System.Runtime.InteropServices.DllImport("advapi32.dll", SetLastError:=True, _
+        CharSet:=System.Runtime.InteropServices.CharSet.Auto)> _
+    Private Shared Function LookupPrivilegeValue(ByVal lpSystemName As String, _
+    ByVal lpName As String, _
+    ByRef lpLuid As Long) As Boolean
+    End Function
+    <System.Runtime.InteropServices.StructLayout( _
+        System.Runtime.InteropServices.LayoutKind.Sequential, Pack:=1)> _
+    Private Structure TOKEN_PRIVILEGES
+        Public PrivilegeCount As Integer
+        Public Luid As Long
+        Public Attributes As Integer
+    End Structure
+    <System.Runtime.InteropServices.DllImport("advapi32.dll", SetLastError:=True)> _
+    Private Shared Function AdjustTokenPrivileges(ByVal TokenHandle As IntPtr, _
+    ByVal DisableAllPrivileges As Boolean, _
+    ByRef NewState As TOKEN_PRIVILEGES, _
+    ByVal BufferLength As Integer, _
+    ByVal PreviousState As IntPtr, _
+    ByVal ReturnLength As IntPtr) As Boolean
+    End Function
+    'シャットダウンするためのセキュリティ特権を有効にする
+    Public Shared Sub AdjustToken()
+        Const TOKEN_ADJUST_PRIVILEGES As Integer = &H20
+        Const TOKEN_QUERY As Integer = &H8
+        Const SE_PRIVILEGE_ENABLED As Integer = &H2
+        Const SE_SHUTDOWN_NAME As String = "SeShutdownPrivilege"
+
+        If Environment.OSVersion.Platform <> PlatformID.Win32NT Then
+            Return
+        End If
+
+        Dim procHandle As IntPtr = GetCurrentProcess()
+
+        'トークンを取得する
+        Dim tokenHandle As IntPtr
+        OpenProcessToken(procHandle, _
+            TOKEN_ADJUST_PRIVILEGES Or TOKEN_QUERY, tokenHandle)
+        'LUIDを取得する
+        Dim tp As New TOKEN_PRIVILEGES()
+        tp.Attributes = SE_PRIVILEGE_ENABLED
+        tp.PrivilegeCount = 1
+        LookupPrivilegeValue(Nothing, SE_SHUTDOWN_NAME, tp.Luid)
+        '特権を有効にする
+        AdjustTokenPrivileges(tokenHandle, False, tp, 0, IntPtr.Zero, IntPtr.Zero)
+
+        '閉じる
+        CloseHandle(tokenHandle)
+    End Sub
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    '終了ボタン
+    Private Sub Button1_Click(sender As Object, e As System.EventArgs) Handles Button1.Click
+        End
+    End Sub
+    '電源OFF
+    Private Sub Button2_Click(sender As Object, e As System.EventArgs) Handles Button2.Click
+        Dim result As DialogResult
+
+        result = MessageBox.Show(" DisplayKata を終了し,PCを電源OFFしますか？ ", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Question)
+        If result = Windows.Forms.DialogResult.OK Then
+            'End
+            AdjustToken()
+            ExitWindowsEx(ExitWindows.EWX_POWEROFF, 0)
+        End If
+
+    End Sub
+    'ｲｴﾛｰｶｰﾄﾞへ
+    Private Sub Button3_Click(sender As Object, e As System.EventArgs) Handles Button3.Click
+
+        Dim D_kata As String = TextBox1.Text
+
+        If P2 <> 0 Then
+
+            AxAcroPDF2.setZoom(110)
+
+            '先頭ページへ
+            AxAcroPDF2.Visible = False
+            AxAcroPDF2.gotoFirstPage()
+            Label1.Text = " 1 / " & CStr(Tpage)
+            Label1.Visible = True
+            AxAcroPDF2.Visible = True
+
+        End If
+
+    End Sub
+    '修理ｶｰﾄﾞ
+    Private Sub Button4_Click(sender As Object, e As System.EventArgs) Handles Button4.Click
+        Dim i As Integer
+
+        If P3 <> 0 Then
+            'P2+1 へ
+            AxAcroPDF2.Visible = False
+            AxAcroPDF2.gotoFirstPage()
+            Label1.Text = " " & (P2 + 1) & " / " & CStr(Tpage)
+            Label1.Visible = True
+
+            AxAcroPDF2.setZoom(110)
+
+            For i = 1 To P2
+                AxAcroPDF2.gotoNextPage()
+            Next
+            AxAcroPDF2.Visible = True
+
+        End If
+
+    End Sub
+    'デポ指示書
+    Private Sub Button5_Click(sender As Object, e As System.EventArgs) Handles Button5.Click
+        Dim i As Integer
+
+        'P2+P3+1 へ
+        AxAcroPDF2.Visible = False
+        AxAcroPDF2.gotoFirstPage()
+        Label1.Text = " " & (P2 + P3 + 1) & " / " & CStr(Tpage)
+        Label1.Visible = True
+
+        AxAcroPDF2.setZoom(61)
+
+        For i = 1 To P2 + P3
+            AxAcroPDF2.gotoNextPage()
+        Next
+        AxAcroPDF2.Visible = True
+
+    End Sub
+    'ﾜﾝﾎﾟｲﾝﾄ
+    Private Sub Button6_Click(sender As Object, e As System.EventArgs) Handles Button6.Click
+        Dim i As Integer
+
+        If P4 <> 0 Then
+
+            AxAcroPDF2.setZoom(110)
+
+            'P2+P3+P1+1 へ
+            AxAcroPDF2.Visible = False
+            AxAcroPDF2.gotoFirstPage()
+            Label1.Text = " " & (P2 + P3 + P1 + 1) & " / " & CStr(Tpage)
+            Label1.Visible = True
+
+            For i = 1 To P2 + P3 + P1
+                AxAcroPDF2.gotoNextPage()
+            Next
+            AxAcroPDF2.Visible = True
+
+        End If
+
+    End Sub
+    '作業指示書
+    Private Sub Button7_Click(sender As Object, e As System.EventArgs) Handles Button7.Click
+
+        If P5 <> 0 Then
+
+            AxAcroPDF2.setZoom(110)
+
+            'P2+P3+P1+P4+1 へ
+            AxAcroPDF2.Visible = False
+            AxAcroPDF2.gotoFirstPage()
+            Label1.Text = " " & (P2 + P3 + P1 + P4 + 1) & " / " & CStr(Tpage)
+            Label1.Visible = True
+
+            For i = 1 To P2 + P3 + P1 + P4
+                AxAcroPDF2.gotoNextPage()
+            Next
+            AxAcroPDF2.Visible = True
+
+        End If
+
+    End Sub
+
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    'Panel切替
+    Private Sub Button8_Click(sender As Object, e As System.EventArgs) Handles Button8.Click
+        If Panel1.Visible = False Then
+            Call Init_Combobox1()
+            Panel1.Visible = True
+        Else
+            Panel1.Visible = False
+            TextBox5.Text = ""
+
+            TextBox1.Text = ""
+            NPage = 0
+            Tpage = 0
+            PFNAME = ""
+            Nkata = ""
+
+            Button3.Enabled = False
+            Button4.Enabled = False
+            Button5.Enabled = False
+            Button6.Enabled = False
+            Button7.Enabled = False
+
+            TextBox4.Text = KNO
+            TextBox4.Enabled = False
+
+            Label1.Visible = False
+            TextBox1.Visible = False
+
+            '初期設定
+            '起動パス
+            Dim stCurrentDir As String = System.IO.Directory.GetCurrentDirectory()
+            AxAcroPDF2.Visible = False
+            AxAcroPDF2.setLayoutMode("singlepage")
+            AxAcroPDF2.LoadFile(stCurrentDir & "\" & "default.pdf")
+            AxAcroPDF2.setPageMode("none")
+            AxAcroPDF2.setShowScrollbars(False)
+            AxAcroPDF2.setShowToolbar(False)
+            System.Threading.Thread.Sleep(300)
+            AxAcroPDF2.Visible = True
+
+            Call Init_Combobox1()
+
+        End If
+    End Sub
+    '数値のみ　BS有効
+    Private Sub TextBox5_KeyPress(ByVal sender As Object, _
+        ByVal e As System.Windows.Forms.KeyPressEventArgs) Handles TextBox5.KeyPress
+        If (e.KeyChar < "0"c Or e.KeyChar > "9"c) And e.KeyChar <> vbBack Then
+            e.Handled = True
+        End If
+    End Sub
+    '表示へ
+    Private Sub Button9_Click(sender As Object, e As System.EventArgs) Handles Button9.Click
+
+        Dim T5 As String = TextBox5.Text
+        If Len(T5) = 5 Then
+            Call DataMake01("XX" & T5)
+
+            Call Init_Combobox1()
+        End If
+    End Sub
+    '部品
+    Private Sub Init_Combobox1()
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+        Dim Num As Integer
+
+        Try
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            ComboBox1.Items.Clear()
+            ComboBox1.Text = ""
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT COUNT(*) FROM master_die "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            Num = cm.ExecuteScalar
+            cn1.Close()
+
+            If Num = 0 Then
+                Exit Sub
+            End If
+
+            strSQL = ""
+            strSQL = strSQL + "SELECT bname FROM master_die "
+            strSQL = strSQL + "GROUP BY bname "
+            strSQL = strSQL + "ORDER BY bname "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            While (rs.Read())
+                ComboBox1.Items.Add(rs("bname").ToString)
+            End While
+            cn1.Close()
+            ComboBox1.Text = ""
+
+            ComboBox2.Items.Clear()
+            ComboBox2.Text = ""
+            ComboBox3.Items.Clear()
+            ComboBox3.Text = ""
+
+        Catch ex As Exception
+            Call ErrLOG("Init_Combobox1", "")
+        End Try
+
+    End Sub
+    Private Sub ComboBox1_SelectedValueChanged(sender As Object, e As System.EventArgs) Handles ComboBox1.SelectedValueChanged
+
+        Dim C1 As String = ComboBox1.Text
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+
+        Try
+            If Len(C1) = 0 Then
+                Exit Sub
+            End If
+
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            ComboBox2.Items.Clear()
+            strSQL = ""
+            strSQL = strSQL + "SELECT kishu FROM master_die "
+            strSQL = strSQL + "WHERE bname='" & C1 & "' "
+            strSQL = strSQL + "GROUP BY kishu "
+            strSQL = strSQL + "ORDER BY kishu "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            While (rs.Read())
+                ComboBox2.Items.Add(rs("kishu").ToString)
+            End While
+            cn1.Close()
+            ComboBox2.Text = ""
+            ComboBox2.Focus()
+
+        Catch ex As Exception
+            Call ErrLOG("Combobox1_SelectedValueChanged", "")
+        End Try
+
+    End Sub
+    Private Sub ComboBox2_SelectedValueChanged(sender As Object, e As System.EventArgs) Handles ComboBox2.SelectedValueChanged
+
+        Dim C1 As String = ComboBox1.Text
+        Dim C2 As String = ComboBox2.Text
+
+        Dim cm As NpgsqlCommand
+        Dim strSQL As String
+        Dim rs As NpgsqlDataReader
+
+        Try
+            If Len(C2) = 0 Then
+                Exit Sub
+            End If
+
+            If cn1.State = ConnectionState.Open = True Then
+                cn1.Close()
+            End If
+
+            ComboBox3.Items.Clear()
+            strSQL = ""
+            strSQL = strSQL + "SELECT katano, hinban FROM master_die "
+            strSQL = strSQL + "WHERE bname='" & C1 & "' AND kishu='" & C2 & "' "
+            strSQL = strSQL + "ORDER BY katano "
+            cn1.Open()
+            cm = New NpgsqlCommand
+            cm.Connection = cn1
+            cm.CommandText = strSQL
+            rs = cm.ExecuteReader
+            While (rs.Read())
+                ComboBox3.Items.Add(rs("katano").ToString & " : " & rs("hinban").ToString)
+            End While
+            cn1.Close()
+            ComboBox3.Text = ""
+            ComboBox3.Focus()
+
+        Catch ex As Exception
+            Call ErrLOG("Combobox2_SelectedValueChanged", "")
+        End Try
+
+    End Sub
+    Private Sub ComboBox3_SelectedValueChanged(sender As Object, e As System.EventArgs) Handles ComboBox3.SelectedValueChanged
+
+        Dim C3 As String = ComboBox3.Text
+
+        If Len(C3) = 0 Then
+            Exit Sub
+        End If
+        TextBox5.Text = Strings.Left(C3, 5)
+        Button9.Focus()
+
+    End Sub
+
+
+End Class
