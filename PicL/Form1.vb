@@ -57,7 +57,7 @@ Public Class Form1
     Private ReadOnly cn2 As New NpgsqlConnection
 
     '処理用変数
-    Public DP2 As String = "TC260120134350903B1015021261ZZ"
+    Public DP2 As String = "BH010042617009101ZZ730225CQ64Q8"
     Public PR1 As String
 
     ' シリアルポート
@@ -65,6 +65,61 @@ Public Class Form1
 
     'SerialPort受信バッファ
     Dim blockbuf As String
+
+    ' QRコード分解用構造体　
+    Private Structure QrCodeParts
+        Public Property Raw As String
+
+        Public Property Hinban As String    ' 1～4 品番
+        Public Property Kkyoten As String   ' 5 刻印拠点
+        Public Property Line As String      ' 6～7 刻印ライン
+        Public Property Kyear As String     ' 8～9 刻印年
+        Public Property Kmonth As String    ' 10 刻印月
+        Public Property Kday As String      ' 11 刻印日
+        Public Property Sserial As String   ' 12～16 シリアル仕上数
+        Public Property Buhin As String     ' 17 部品情報 MH:1 RO:2 FH:3 RH:4 SH:5 
+        Public Property Dcline As String    ' 20-21 DCライン
+        Public Property Kata As String      ' 22-23 金型
+        Public Property Cyear As String     ' 24～25 鋳造年
+        Public Property Cmonth As String    ' 26 鋳造月
+        Public Property Cday As String      ' 27 鋳造日
+        Public Property Ctime As String     ' 28 鋳造時間
+        Public Property Nro As String       ' 29 熱処理炉    
+        Public Property Nday As String      ' 30 熱処理日
+        Public Property Ntime As String     ' 31 熱処理時間
+
+        Public Shared Function TryParse(raw As String, ByRef result As QrCodeParts) As Boolean
+            result = Nothing
+
+            If String.IsNullOrWhiteSpace(raw) OrElse raw.Length < 7 Then
+                Return False
+            End If
+
+            result = New QrCodeParts With {
+                .Raw = raw,
+                .Hinban = raw.Substring(0, 4),
+                .Kkyoten = raw.Substring(4, 1),
+                .Line = raw.Substring(5, 2),
+                .Kyear = raw.Substring(7, 2),
+                .Kmonth = raw.Substring(9, 1),
+                .Kday = raw.Substring(10, 1),
+                .Sserial = raw.Substring(11, 5),
+                .Buhin = raw.Substring(16, 1),
+                .Dcline = raw.Substring(19, 2),
+                .Kata = raw.Substring(21, 2),
+                .Cyear = raw.Substring(23, 2),
+                .Cmonth = raw.Substring(25, 1),
+                .Cday = raw.Substring(26, 1),
+                .Ctime = raw.Substring(27, 1),
+                .Nro = raw.Substring(28, 1),
+                .Nday = raw.Substring(29, 1),
+                .Ntime = raw.Substring(30, 1)
+            }
+
+            Return True
+        End Function
+    End Structure
+
 
 
 
@@ -430,6 +485,53 @@ Public Class Form1
     End Sub
 
 
+    '新規作業データ表示　c1flexgrid2にtemp_work02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid2_S(PicHinban As String)
+        Try
+            Dim pictureDir As String = System.IO.Path.Combine(Application.StartupPath, "picture")
+
+            If Not System.IO.Directory.Exists(pictureDir) Then
+                Exit Sub
+            End If
+
+            Dim targetFile As String = String.Empty
+            Dim exts As String() = {".jpg", ".jpeg", ".png"}
+
+            For Each ext As String In exts
+                Dim filePath As String = System.IO.Path.Combine(pictureDir, PicHinban & ext)
+                If System.IO.File.Exists(filePath) Then
+                    targetFile = filePath
+                    Exit For
+                End If
+            Next
+
+            If String.IsNullOrEmpty(targetFile) Then
+                Exit Sub
+            End If
+
+            Dim oldImage As Image = C1FlexGrid1.BackgroundImage
+
+            Using fs As New System.IO.FileStream(targetFile, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite)
+                Using img As Image = Image.FromStream(fs)
+                    C1FlexGrid1.BackgroundImage = New Bitmap(img) ' ファイルロック回避
+
+
+
+                End Using
+            End Using
+
+            C1FlexGrid1.BackgroundImageLayout = ImageLayout.Stretch
+
+            If oldImage IsNot Nothing Then
+                oldImage.Dispose()
+            End If
+
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid2_S", ex.Message)
+        End Try
+    End Sub
+
+
 
     'c1flexgrid2にtemp_work02の作業データを表示する
     Private Sub DisplayWorkDataInGrid2(workno As String)
@@ -458,6 +560,35 @@ Public Class Form1
             MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
         End Try
     End Sub
+
+    'c1flexgrid2にwork02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid2K(workno As String)
+        Try
+            Dim sql = "SELECT xp, yp, dno FROM work02 WHERE workno=@workno ORDER BY xp, yp;"
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    Dim rowIndex As Integer = 1
+                    While reader.Read()
+                        C1FlexGrid2.Rows.Add()
+                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        rowIndex += 1
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
 
 
 
@@ -615,8 +746,8 @@ Public Class Form1
 
             Dim sql As String =
             "SELECT xp, yp, dno " &
-            "FROM temp_work02 " &
-            "WHERE workno = @workno AND sflg = '0' " &
+            "FROM work02 " &
+            "WHERE workno = @workno " &
             "ORDER BY workdate, xp, yp;"
 
             Using cn As New NpgsqlConnection(cn1.ConnectionString),
@@ -700,8 +831,15 @@ Public Class Form1
 
             'comboboxを初期化する
             ComboBox1.SelectedIndex = COMBO_INDEX_NONE
-            'textbox2をクリアする
+            'textboxをクリアする
+            TextBox1.Text = ""
             TextBox2.Text = ""
+            TextBox3.Text = ""
+            TextBox4.Text = ""
+
+            'c1flexgrid1の表示をクリアする
+            InitializeGrid()
+
 
         End Using
 
@@ -756,32 +894,80 @@ Public Class Form1
 
 
     ' シリアルポートオープン
-    Private Sub OpenQrPort()
-        _port = New SerialPort("COM3", 9600, Parity.None, 8, StopBits.One)
-        _port.Handshake = Handshake.None
-        _port.DtrEnable = True
-        _port.RtsEnable = False
-        _port.Encoding = Encoding.ASCII
-        _port.NewLine = vbCr
-        _port.ReceivedBytesThreshold = 1
+    Private Function OpenQrPort() As Boolean
+        Try
+            If _port IsNot Nothing AndAlso _port.IsOpen Then
+                Return True
+            End If
 
-        AddHandler _port.DataReceived, AddressOf Port_DataReceived
-        _port.Open()
-    End Sub
+            _port = New SerialPort("COM3", 9600, Parity.None, 8, StopBits.One) With {
+                .Handshake = Handshake.None,
+                .DtrEnable = True,
+                .RtsEnable = False,
+                .Encoding = System.Text.Encoding.ASCII,
+                .NewLine = vbCrLf,
+                .ReceivedBytesThreshold = 1
+            }
+
+            AddHandler _port.DataReceived, AddressOf Port_DataReceived
+            _port.Open()
+
+            Return True
+
+        Catch ex As UnauthorizedAccessException
+            WriteErrorLog("OpenQrPort", ex.Message)
+            MessageBox.Show("QRリーダーのポートを開けません", "通信エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+
+        Catch ex As IO.IOException
+            WriteErrorLog("OpenQrPort", ex.Message)
+            MessageBox.Show("QRリーダーが接続されていないか、ポート状態が不正です", "通信エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+
+        Catch ex As ArgumentException
+            WriteErrorLog("OpenQrPort", ex.Message)
+            MessageBox.Show("COMポート設定が不正です", "設定エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
+
+        Catch ex As InvalidOperationException
+            WriteErrorLog("OpenQrPort", ex.Message)
+            MessageBox.Show("QRリーダーのポート初期化に失敗しました", "通信エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
+
+        Catch ex As Exception
+            WriteErrorLog("OpenQrPort", ex.Message)
+            MessageBox.Show("QRリーダー接続時に予期しないエラーが発生しました", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+
+        If _port IsNot Nothing Then
+            Try
+                RemoveHandler _port.DataReceived, AddressOf Port_DataReceived
+                If _port.IsOpen Then _port.Close()
+                _port.Dispose()
+            Catch
+            End Try
+            _port = Nothing
+        End If
+
+        Return False
+    End Function
 
     Private Sub Port_DataReceived(sender As Object, e As SerialDataReceivedEventArgs)
         Try
             Dim sp = DirectCast(sender, SerialPort)
             Dim raw As String = sp.ReadExisting() ' まずは生受信を確認
 
-            Me.BeginInvoke(Sub()
-                               TextBox1.Text &= raw
-                           End Sub)
+            Dim parts As QrCodeParts
+            If QrCodeParts.TryParse(raw, parts) Then
 
-            ' ここでrawを解析して必要な処理を行う
+                Me.BeginInvoke(Sub()
+                                   TextBox3.Text = parts.Hinban
+                                   TextBox4.Text = "20" & parts.Kyear & "/" & parts.Kmonth & "/" & parts.Kday
 
 
+                                   'DEMO用を参考に、rawを引数としてStartWork01を呼び出す
+                                   StartWork01(parts)
 
+
+                               End Sub)
+
+            End If
 
 
         Catch
@@ -817,7 +1003,155 @@ Public Class Form1
 
 
 
+    Private Sub StartWork01(parts As QrCodeParts)
+
+        'Dim imagePath As String = System.IO.Path.Combine(Application.StartupPath, "Sample.png")
+        'If System.IO.File.Exists(imagePath) Then
+        '    C1FlexGrid1.BackgroundImage = Image.FromFile(imagePath)
+        '    C1FlexGrid1.BackgroundImageLayout = ImageLayout.Stretch
+        'End If
+
+        '作業番号採番　コード読み取りによるトリガー処理？　2Dコード重複チェック
+        Dim strSQL As String
+        Dim cmd As NpgsqlCommand
+        Dim rs As NpgsqlDataReader
+        Dim Num As Integer
+
+
+        strSQL = ""
+        strSQL = strSQL + "SELECT COUNT(*) FROM work01 "
+        strSQL = strSQL + "WHERE work2d = '" & parts.Raw & "';"
+        cn1.Open()
+        cmd = New NpgsqlCommand
+        cmd.Connection = cn1
+        cmd.CommandText = strSQL
+        cmd.CommandType = CommandType.Text
+        Num = cmd.ExecuteScalar
+        cn1.Close()
+
+        If Num = 0 Then
+            '新規登録処理 採番処理
+            strSQL = ""
+            strSQL = strSQL + "SELECT get_prno(" & "'" & parts.Raw & "'" & ");"
+            cn1.Open()
+            cmd = New NpgsqlCommand
+            cmd.Connection = cn1
+            cmd.CommandText = strSQL
+            cmd.CommandType = CommandType.Text
+            rs = cmd.ExecuteReader
+            rs.Read()
+            PR1 = rs(0).ToString
+            rs.Close()
+            cn1.Close()
+            '作業番号表示
+            TextBox1.Text = PR1
+
+            '必要な画像を検索
+            DisplayWorkDataInGrid2_S(parts.Hinban)
+
+        Else
+            MessageBox.Show("このコードは既に登録・処理されています。", "警告", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+            '過去の作業結果表示へ
+            strSQL = ""
+            strSQL = strSQL + "SELECT * FROM work01 "
+            strSQL = strSQL + "WHERE work2d = '" & parts.Raw & "';"
+            cn1.Open()
+            cmd = New NpgsqlCommand
+            cmd.Connection = cn1
+            cmd.CommandText = strSQL
+            cmd.CommandType = CommandType.Text
+            rs = cmd.ExecuteReader
+            rs.Read()
+            PR1 = rs(0).ToString
+            rs.Close()
+            cn1.Close()
+            '作業番号表示
+            TextBox1.Text = PR1
+
+            ' 作業データをc1flexgrid2に表示する
+            DisplayWorkDataInGrid2_S(parts.Hinban)
+            'DisplayWorkDataInGrid2(PR1)
+
+            'c1flexgrid1に過去の作業結果を表示する
+            LoadPastWorkData(PR1)
+            'c2flexgrid1に過去の作業結果を表示する
+            DisplayWorkDataInGrid2K(PR1)
+
+
+
+
+
+        End If
+
+
+
+
+    End Sub
+
+
+
+
+
+
+
+
 End Class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

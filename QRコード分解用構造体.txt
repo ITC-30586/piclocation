@@ -1,0 +1,46 @@
+' QRコード分解用構造体
+Private Structure QrCodeParts
+    Public Property Raw As String
+    Public Property Hinban As String    ' 1～4桁目
+    Public Property Kyoten As String    ' 5桁目
+    Public Property Line As String      ' 6～7桁目
+    Public Property Rest As String      ' 8桁目以降（必要なら）
+
+    Public Shared Function TryParse(raw As String, ByRef result As QrCodeParts) As Boolean
+        result = Nothing
+
+        If String.IsNullOrWhiteSpace(raw) OrElse raw.Length < 7 Then
+            Return False
+        End If
+
+        result = New QrCodeParts With {
+            .Raw = raw,
+            .Hinban = raw.Substring(0, 4),
+            .Kyoten = raw.Substring(4, 1),
+            .Line = raw.Substring(5, 2),
+            .Rest = If(raw.Length > 7, raw.Substring(7), String.Empty)
+        }
+
+        Return True
+    End Function
+End Structure
+
+
+Port_DataReceived で使う例です。
+Private Sub Port_DataReceived(sender As Object, e As SerialDataReceivedEventArgs)
+    Try
+        Dim sp = DirectCast(sender, SerialPort)
+        Dim raw As String = sp.ReadExisting().Trim()
+
+        Dim parts As QrCodeParts
+        If QrCodeParts.TryParse(raw, parts) Then
+            Me.BeginInvoke(Sub()
+                               TextBox1.Text = parts.Raw
+                               ' 例: 必要なら各値を変数やラベルへ
+                               ' parts.Hinban, parts.Kyoten, parts.Line
+                           End Sub)
+        End If
+
+    Catch
+    End Try
+End Sub

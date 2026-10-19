@@ -39,6 +39,10 @@ Partial Class Form1
         Me.C1FlexGrid1 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
         Me.SerialPort1 = New System.IO.Ports.SerialPort(Me.components)
+        Me.TextBox3 = New System.Windows.Forms.TextBox()
+        Me.Label5 = New System.Windows.Forms.Label()
+        Me.Label6 = New System.Windows.Forms.Label()
+        Me.TextBox4 = New System.Windows.Forms.TextBox()
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.C1FlexGrid2, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -58,6 +62,10 @@ Partial Class Form1
         'TabPage1
         '
         Me.TabPage1.BackColor = System.Drawing.Color.DarkGray
+        Me.TabPage1.Controls.Add(Me.TextBox4)
+        Me.TabPage1.Controls.Add(Me.Label6)
+        Me.TabPage1.Controls.Add(Me.Label5)
+        Me.TabPage1.Controls.Add(Me.TextBox3)
         Me.TabPage1.Controls.Add(Me.Label4)
         Me.TabPage1.Controls.Add(Me.C1FlexGrid2)
         Me.TabPage1.Controls.Add(Me.Label3)
@@ -71,7 +79,7 @@ Partial Class Form1
         Me.TabPage1.Controls.Add(Me.C1FlexGrid1)
         Me.TabPage1.Location = New System.Drawing.Point(4, 22)
         Me.TabPage1.Name = "TabPage1"
-        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3, 3, 3, 3)
+        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3)
         Me.TabPage1.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage1.TabIndex = 0
         Me.TabPage1.Text = "作業"
@@ -80,7 +88,7 @@ Partial Class Form1
         '
         Me.Label4.AutoSize = True
         Me.Label4.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label4.Location = New System.Drawing.Point(1674, 339)
+        Me.Label4.Location = New System.Drawing.Point(1635, 548)
         Me.Label4.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(66, 19)
@@ -91,8 +99,8 @@ Partial Class Form1
         'C1FlexGrid2
         '
         Me.C1FlexGrid2.ColumnInfo = "10,1,0,0,0,-1,Columns:"
-        Me.C1FlexGrid2.Location = New System.Drawing.Point(1580, 369)
-        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.C1FlexGrid2.Location = New System.Drawing.Point(1579, 647)
+        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2)
         Me.C1FlexGrid2.Name = "C1FlexGrid2"
         Me.C1FlexGrid2.Size = New System.Drawing.Size(237, 221)
         Me.C1FlexGrid2.TabIndex = 11
@@ -101,7 +109,7 @@ Partial Class Form1
         '
         Me.Label3.AutoSize = True
         Me.Label3.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label3.Location = New System.Drawing.Point(1675, 263)
+        Me.Label3.Location = New System.Drawing.Point(1714, 548)
         Me.Label3.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(47, 19)
@@ -113,7 +121,7 @@ Partial Class Form1
         '
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label2.Location = New System.Drawing.Point(1657, 189)
+        Me.Label2.Location = New System.Drawing.Point(1657, 472)
         Me.Label2.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(104, 19)
@@ -145,7 +153,7 @@ Partial Class Form1
         'TextBox2
         '
         Me.TextBox2.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.TextBox2.Location = New System.Drawing.Point(1579, 285)
+        Me.TextBox2.Location = New System.Drawing.Point(1578, 585)
         Me.TextBox2.Name = "TextBox2"
         Me.TextBox2.Size = New System.Drawing.Size(237, 29)
         Me.TextBox2.TabIndex = 6
@@ -155,7 +163,7 @@ Partial Class Form1
         '
         Me.ComboBox1.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
         Me.ComboBox1.FormattingEnabled = True
-        Me.ComboBox1.Location = New System.Drawing.Point(1579, 219)
+        Me.ComboBox1.Location = New System.Drawing.Point(1579, 502)
         Me.ComboBox1.Name = "ComboBox1"
         Me.ComboBox1.Size = New System.Drawing.Size(237, 29)
         Me.ComboBox1.TabIndex = 5
@@ -173,7 +181,7 @@ Partial Class Form1
         '
         'Button1
         '
-        Me.Button1.Location = New System.Drawing.Point(1580, 647)
+        Me.Button1.Location = New System.Drawing.Point(1579, 873)
         Me.Button1.Name = "Button1"
         Me.Button1.Size = New System.Drawing.Size(236, 41)
         Me.Button1.TabIndex = 3
@@ -191,13 +199,55 @@ Partial Class Form1
         'TabPage2
         '
         Me.TabPage2.Location = New System.Drawing.Point(4, 22)
-        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Name = "TabPage2"
-        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage2.TabIndex = 1
         Me.TabPage2.Text = "TabPage2"
         Me.TabPage2.UseVisualStyleBackColor = True
+        '
+        'TextBox3
+        '
+        Me.TextBox3.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox3.Location = New System.Drawing.Point(1578, 228)
+        Me.TextBox3.Name = "TextBox3"
+        Me.TextBox3.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox3.TabIndex = 13
+        Me.TextBox3.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        '
+        'Label5
+        '
+        Me.Label5.AutoSize = True
+        Me.Label5.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label5.Location = New System.Drawing.Point(1678, 206)
+        Me.Label5.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label5.Name = "Label5"
+        Me.Label5.Size = New System.Drawing.Size(47, 19)
+        Me.Label5.TabIndex = 14
+        Me.Label5.Text = "品番"
+        Me.Label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'Label6
+        '
+        Me.Label6.AutoSize = True
+        Me.Label6.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label6.Location = New System.Drawing.Point(1678, 280)
+        Me.Label6.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label6.Name = "Label6"
+        Me.Label6.Size = New System.Drawing.Size(66, 19)
+        Me.Label6.TabIndex = 15
+        Me.Label6.Text = "刻印日"
+        Me.Label6.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'TextBox4
+        '
+        Me.TextBox4.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox4.Location = New System.Drawing.Point(1579, 302)
+        Me.TextBox4.Name = "TextBox4"
+        Me.TextBox4.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox4.TabIndex = 16
+        Me.TextBox4.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
         '
         'Form1
         '
@@ -232,4 +282,8 @@ Partial Class Form1
     Friend WithEvents C1FlexGrid2 As C1.Win.C1FlexGrid.C1FlexGrid
     Friend WithEvents TabPage2 As TabPage
     Friend WithEvents SerialPort1 As IO.Ports.SerialPort
+    Friend WithEvents Label5 As Label
+    Friend WithEvents TextBox3 As TextBox
+    Friend WithEvents TextBox4 As TextBox
+    Friend WithEvents Label6 As Label
 End Class
