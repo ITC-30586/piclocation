@@ -277,6 +277,35 @@ Public Class Form1
         End Try
     End Sub
 
+
+    Private Sub TabControl1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles TabControl1.SelectedIndexChanged
+        Select Case TabControl1.SelectedIndex
+            Case 0
+                ' 1つ目タブに切り替わった後の処理
+                InitializeForm()
+                InitializeGrid()
+
+            Case 1
+                ' 2つ目タブに切り替わった後の処理
+                InitializeComboBox2()
+
+                'If Not String.IsNullOrWhiteSpace(PR1) Then
+                '    DisplayWorkDataInGrid2(PR1)
+                'End If
+        End Select
+    End Sub
+
+
+
+
+
+
+
+
+
+
+
+
     ' 起動時画面設定
     Private Sub InitializeForm()
         Me.Text = $"PICロケーション作業記録 {APP_VERSION}"
@@ -370,13 +399,6 @@ Public Class Form1
             Throw
         End Try
     End Sub
-
-
-
-
-
-
-
 
 
     ' 背景画像読み込み
@@ -1078,11 +1100,75 @@ Public Class Form1
             DisplayWorkDataInGrid2K(PR1)
 
 
-
-
-
         End If
 
+
+    End Sub
+
+    '---------------------------------------------------------------------------------------------------------------
+    'tab2
+
+    ' グリッド初期化 (旧:Init_C1FG01)
+    Private Sub InitializeGrid3()
+        Try
+            C1FlexGrid3.Visible = False
+            C1FlexGrid3.Location = New Drawing.Point(29, 24)
+            C1FlexGrid3.Size = New Drawing.Size(1504, 906)
+            C1FlexGrid3.Clear()
+
+            ' 背景画像設定
+            'LoadBackgroundImage()
+
+            ' グリッド設定
+            'ConfigureGridAppearance()
+            'ConfigureGridSize()
+
+            C1FlexGrid3.Visible = True
+            C1FlexGrid3.Select(-1, -1, True)
+        Catch ex As Exception
+            WriteErrorLog("InitializeGrid3", ex.Message)
+            Throw
+        End Try
+    End Sub
+
+    Private Sub TabControl1_Selecting(sender As Object, e As TabControlCancelEventArgs) Handles TabControl1.Selecting
+        '' 例: 作業番号がない場合は2番目タブへの遷移を禁止
+        'If e.TabPage Is TabPage2 AndAlso String.IsNullOrWhiteSpace(TextBox1.Text) Then
+        '    MessageBox.Show("先にQRコードを読み取ってください。", "確認", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        '    e.Cancel = True
+        'End If
+    End Sub
+
+    'Combobox2 work01の作業番号を表示する worknoの一覧を表示する
+    Private Sub InitializeComboBox2()
+
+
+
+
+
+
+
+        Try
+            Dim sql = "SELECT workno FROM work01 ORDER BY workno DESC;"
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    ComboBox2.Items.Clear()
+                    While reader.Read()
+                        ComboBox2.Items.Add(reader.GetString(0))
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        Catch ex As Exception
+            WriteErrorLog("InitializeComboBox2", ex.Message)
+            MessageBox.Show("作業番号の取得中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
+    'combobox2の選択変更イベント　work01の作業番号
+    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
 
 
 
@@ -1091,11 +1177,71 @@ Public Class Form1
 
 
 
-
-
-
-
 End Class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

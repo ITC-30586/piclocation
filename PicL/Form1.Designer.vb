@@ -26,6 +26,10 @@ Partial Class Form1
         Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(Form1))
         Me.TabControl1 = New System.Windows.Forms.TabControl()
         Me.TabPage1 = New System.Windows.Forms.TabPage()
+        Me.TextBox4 = New System.Windows.Forms.TextBox()
+        Me.Label6 = New System.Windows.Forms.Label()
+        Me.Label5 = New System.Windows.Forms.Label()
+        Me.TextBox3 = New System.Windows.Forms.TextBox()
         Me.Label4 = New System.Windows.Forms.Label()
         Me.C1FlexGrid2 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.Label3 = New System.Windows.Forms.Label()
@@ -38,15 +42,23 @@ Partial Class Form1
         Me.Button1 = New System.Windows.Forms.Button()
         Me.C1FlexGrid1 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
+        Me.C1FlexGrid3 = New C1.Win.C1FlexGrid.C1FlexGrid()
+        Me.Label7 = New System.Windows.Forms.Label()
+        Me.ComboBox2 = New System.Windows.Forms.ComboBox()
         Me.SerialPort1 = New System.IO.Ports.SerialPort(Me.components)
-        Me.TextBox3 = New System.Windows.Forms.TextBox()
-        Me.Label5 = New System.Windows.Forms.Label()
-        Me.Label6 = New System.Windows.Forms.Label()
-        Me.TextBox4 = New System.Windows.Forms.TextBox()
+        Me.Button3 = New System.Windows.Forms.Button()
+        Me.TextBox5 = New System.Windows.Forms.TextBox()
+        Me.Label8 = New System.Windows.Forms.Label()
+        Me.Label9 = New System.Windows.Forms.Label()
+        Me.TextBox6 = New System.Windows.Forms.TextBox()
+        Me.C1FlexGrid4 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.C1FlexGrid2, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.C1FlexGrid1, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.TabPage2.SuspendLayout()
+        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.C1FlexGrid4, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'TabControl1
@@ -83,6 +95,48 @@ Partial Class Form1
         Me.TabPage1.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage1.TabIndex = 0
         Me.TabPage1.Text = "作業"
+        '
+        'TextBox4
+        '
+        Me.TextBox4.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox4.Location = New System.Drawing.Point(1579, 302)
+        Me.TextBox4.Name = "TextBox4"
+        Me.TextBox4.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox4.TabIndex = 16
+        Me.TextBox4.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        '
+        'Label6
+        '
+        Me.Label6.AutoSize = True
+        Me.Label6.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label6.Location = New System.Drawing.Point(1678, 280)
+        Me.Label6.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label6.Name = "Label6"
+        Me.Label6.Size = New System.Drawing.Size(66, 19)
+        Me.Label6.TabIndex = 15
+        Me.Label6.Text = "刻印日"
+        Me.Label6.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'Label5
+        '
+        Me.Label5.AutoSize = True
+        Me.Label5.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label5.Location = New System.Drawing.Point(1678, 206)
+        Me.Label5.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label5.Name = "Label5"
+        Me.Label5.Size = New System.Drawing.Size(47, 19)
+        Me.Label5.TabIndex = 14
+        Me.Label5.Text = "品番"
+        Me.Label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'TextBox3
+        '
+        Me.TextBox3.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox3.Location = New System.Drawing.Point(1578, 228)
+        Me.TextBox3.Name = "TextBox3"
+        Me.TextBox3.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox3.TabIndex = 13
+        Me.TextBox3.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
         '
         'Label4
         '
@@ -121,7 +175,7 @@ Partial Class Form1
         '
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label2.Location = New System.Drawing.Point(1657, 472)
+        Me.Label2.Location = New System.Drawing.Point(1657, 471)
         Me.Label2.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(104, 19)
@@ -198,56 +252,112 @@ Partial Class Form1
         '
         'TabPage2
         '
+        Me.TabPage2.BackColor = System.Drawing.Color.DarkGray
+        Me.TabPage2.Controls.Add(Me.C1FlexGrid4)
+        Me.TabPage2.Controls.Add(Me.TextBox5)
+        Me.TabPage2.Controls.Add(Me.Label8)
+        Me.TabPage2.Controls.Add(Me.Label9)
+        Me.TabPage2.Controls.Add(Me.TextBox6)
+        Me.TabPage2.Controls.Add(Me.Button3)
+        Me.TabPage2.Controls.Add(Me.C1FlexGrid3)
+        Me.TabPage2.Controls.Add(Me.Label7)
+        Me.TabPage2.Controls.Add(Me.ComboBox2)
         Me.TabPage2.Location = New System.Drawing.Point(4, 22)
         Me.TabPage2.Margin = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Name = "TabPage2"
         Me.TabPage2.Padding = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage2.TabIndex = 1
-        Me.TabPage2.Text = "TabPage2"
-        Me.TabPage2.UseVisualStyleBackColor = True
+        Me.TabPage2.Text = "作業履歴"
         '
-        'TextBox3
+        'C1FlexGrid3
         '
-        Me.TextBox3.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.TextBox3.Location = New System.Drawing.Point(1578, 228)
-        Me.TextBox3.Name = "TextBox3"
-        Me.TextBox3.Size = New System.Drawing.Size(237, 29)
-        Me.TextBox3.TabIndex = 13
-        Me.TextBox3.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        Me.C1FlexGrid3.ColumnInfo = "10,1,0,0,0,-1,Columns:"
+        Me.C1FlexGrid3.Location = New System.Drawing.Point(355, 36)
+        Me.C1FlexGrid3.Name = "C1FlexGrid3"
+        Me.C1FlexGrid3.Size = New System.Drawing.Size(1504, 907)
+        Me.C1FlexGrid3.TabIndex = 11
         '
-        'Label5
+        'Label7
         '
-        Me.Label5.AutoSize = True
-        Me.Label5.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label5.Location = New System.Drawing.Point(1678, 206)
-        Me.Label5.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
-        Me.Label5.Name = "Label5"
-        Me.Label5.Size = New System.Drawing.Size(47, 19)
-        Me.Label5.TabIndex = 14
-        Me.Label5.Text = "品番"
-        Me.Label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.Label7.AutoSize = True
+        Me.Label7.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label7.Location = New System.Drawing.Point(83, 36)
+        Me.Label7.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label7.Name = "Label7"
+        Me.Label7.Size = New System.Drawing.Size(85, 19)
+        Me.Label7.TabIndex = 10
+        Me.Label7.Text = "作業番号"
+        Me.Label7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
         '
-        'Label6
+        'ComboBox2
         '
-        Me.Label6.AutoSize = True
-        Me.Label6.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label6.Location = New System.Drawing.Point(1678, 280)
-        Me.Label6.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
-        Me.Label6.Name = "Label6"
-        Me.Label6.Size = New System.Drawing.Size(66, 19)
-        Me.Label6.TabIndex = 15
-        Me.Label6.Text = "刻印日"
-        Me.Label6.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        Me.ComboBox2.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.ComboBox2.FormattingEnabled = True
+        Me.ComboBox2.Location = New System.Drawing.Point(23, 67)
+        Me.ComboBox2.Name = "ComboBox2"
+        Me.ComboBox2.Size = New System.Drawing.Size(237, 29)
+        Me.ComboBox2.TabIndex = 6
         '
-        'TextBox4
+        'Button3
         '
-        Me.TextBox4.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.TextBox4.Location = New System.Drawing.Point(1579, 302)
-        Me.TextBox4.Name = "TextBox4"
-        Me.TextBox4.Size = New System.Drawing.Size(237, 29)
-        Me.TextBox4.TabIndex = 16
-        Me.TextBox4.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        Me.Button3.Location = New System.Drawing.Point(24, 133)
+        Me.Button3.Name = "Button3"
+        Me.Button3.Size = New System.Drawing.Size(236, 41)
+        Me.Button3.TabIndex = 12
+        Me.Button3.Text = "作業番号選択"
+        Me.Button3.UseVisualStyleBackColor = True
+        '
+        'TextBox5
+        '
+        Me.TextBox5.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox5.Location = New System.Drawing.Point(24, 348)
+        Me.TextBox5.Name = "TextBox5"
+        Me.TextBox5.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox5.TabIndex = 20
+        Me.TextBox5.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        '
+        'Label8
+        '
+        Me.Label8.AutoSize = True
+        Me.Label8.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label8.Location = New System.Drawing.Point(102, 326)
+        Me.Label8.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label8.Name = "Label8"
+        Me.Label8.Size = New System.Drawing.Size(66, 19)
+        Me.Label8.TabIndex = 19
+        Me.Label8.Text = "刻印日"
+        Me.Label8.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'Label9
+        '
+        Me.Label9.AutoSize = True
+        Me.Label9.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label9.Location = New System.Drawing.Point(102, 261)
+        Me.Label9.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label9.Name = "Label9"
+        Me.Label9.Size = New System.Drawing.Size(47, 19)
+        Me.Label9.TabIndex = 18
+        Me.Label9.Text = "品番"
+        Me.Label9.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'TextBox6
+        '
+        Me.TextBox6.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.TextBox6.Location = New System.Drawing.Point(23, 283)
+        Me.TextBox6.Name = "TextBox6"
+        Me.TextBox6.Size = New System.Drawing.Size(237, 29)
+        Me.TextBox6.TabIndex = 17
+        Me.TextBox6.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
+        '
+        'C1FlexGrid4
+        '
+        Me.C1FlexGrid4.ColumnInfo = "10,1,0,0,0,-1,Columns:"
+        Me.C1FlexGrid4.Location = New System.Drawing.Point(24, 423)
+        Me.C1FlexGrid4.Margin = New System.Windows.Forms.Padding(2)
+        Me.C1FlexGrid4.Name = "C1FlexGrid4"
+        Me.C1FlexGrid4.Size = New System.Drawing.Size(237, 325)
+        Me.C1FlexGrid4.TabIndex = 22
         '
         'Form1
         '
@@ -264,6 +374,10 @@ Partial Class Form1
         Me.TabPage1.PerformLayout()
         CType(Me.C1FlexGrid2, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.C1FlexGrid1, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.TabPage2.ResumeLayout(False)
+        Me.TabPage2.PerformLayout()
+        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).EndInit()
+        CType(Me.C1FlexGrid4, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
 
     End Sub
@@ -286,4 +400,13 @@ Partial Class Form1
     Friend WithEvents TextBox3 As TextBox
     Friend WithEvents TextBox4 As TextBox
     Friend WithEvents Label6 As Label
+    Friend WithEvents C1FlexGrid3 As C1.Win.C1FlexGrid.C1FlexGrid
+    Friend WithEvents Label7 As Label
+    Friend WithEvents ComboBox2 As ComboBox
+    Friend WithEvents Button3 As Button
+    Friend WithEvents TextBox5 As TextBox
+    Friend WithEvents Label8 As Label
+    Friend WithEvents Label9 As Label
+    Friend WithEvents TextBox6 As TextBox
+    Friend WithEvents C1FlexGrid4 As C1.Win.C1FlexGrid.C1FlexGrid
 End Class
