@@ -1142,12 +1142,6 @@ Public Class Form1
     'Combobox2 work01の作業番号を表示する worknoの一覧を表示する
     Private Sub InitializeComboBox2()
 
-
-
-
-
-
-
         Try
             Dim sql = "SELECT workno FROM work01 ORDER BY workno DESC;"
             Using cn As New NpgsqlConnection(cn1.ConnectionString),
