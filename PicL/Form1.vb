@@ -145,10 +145,11 @@ Public Class Form1
             InitializeGrid2()
             InitializeCellStyles()
 
+
+            'InitializeGrid3()
+
             ' シリアルポートオーブン
             OpenQrPort()
-
-
 
         Catch ex As IO.FileNotFoundException
             WriteErrorLog("Form1_Load", ex.Message)
@@ -728,6 +729,14 @@ Public Class Form1
             '作業番号表示
             TextBox1.Text = PR1
 
+
+
+
+
+
+
+
+
         Else
             MessageBox.Show("このコードは既に登録・処理されています。", "警告", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
             '過去の作業結果表示へ
@@ -1112,16 +1121,16 @@ Public Class Form1
     Private Sub InitializeGrid3()
         Try
             C1FlexGrid3.Visible = False
-            C1FlexGrid3.Location = New Drawing.Point(29, 24)
-            C1FlexGrid3.Size = New Drawing.Size(1504, 906)
+            'C1FlexGrid3.Location = New Drawing.Point(592, 54)
+            C1FlexGrid3.Size = New Drawing.Size(1504, 907)
             C1FlexGrid3.Clear()
 
             ' 背景画像設定
             'LoadBackgroundImage()
 
             ' グリッド設定
-            'ConfigureGridAppearance()
-            'ConfigureGridSize()
+            'ConfigureGridAppearance3()
+            'ConfigureGridSize3()
 
             C1FlexGrid3.Visible = True
             C1FlexGrid3.Select(-1, -1, True)
@@ -1137,7 +1146,71 @@ Public Class Form1
         '    MessageBox.Show("先にQRコードを読み取ってください。", "確認", MessageBoxButtons.OK, MessageBoxIcon.Information)
         '    e.Cancel = True
         'End If
+
+
+
+        If e.TabPage Is TabPage2 Then
+            ' 2番目のタブが選択
+            InitializeGrid3()
+
+
+
+
+        Else
+            ' それ以外のタブが選択された場合の処理（必要に応じて追加）
+
+        End If
+
+
+
+
+
+
+
+
+
+
     End Sub
+
+
+
+    ' グリッド外観設定
+    Private Sub ConfigureGridAppearance3()
+        C1FlexGrid3.Cols(0).Visible = False
+        C1FlexGrid3.Rows(0).Visible = False
+
+        ' 罫線設定
+        With C1FlexGrid1.Styles.Normal.Border
+            .Color = System.Drawing.Color.Gray
+            .Style = BorderStyleEnum.Dotted
+            .Width = 1
+        End With
+
+        ' フォーカス罫線設定
+        With C1FlexGrid1.Styles.Focus.Border
+            .Color = System.Drawing.Color.Red
+            .Style = BorderStyleEnum.Double
+        End With
+    End Sub
+
+    ' グリッドサイズ設定
+    Private Sub ConfigureGridSize3()
+        With C1FlexGrid3
+            .Rows.DefaultSize = CELL_HEIGHT
+            .Cols.DefaultSize = CELL_WIDTH
+            .Rows.Fixed = 0
+            .Cols.Fixed = 0
+            .Cols.Count = GRID_SIZE + 1
+            .Rows.Count = GRID_SIZE + 1
+            .ScrollBars = ScrollBars.None
+
+            For i As Integer = 0 To GRID_SIZE
+                .Cols(i).Width = CELL_WIDTH
+                .Rows(i).Height = CELL_HEIGHT
+            Next
+        End With
+    End Sub
+
 
     'Combobox2 work01の作業番号を表示する worknoの一覧を表示する
     Private Sub InitializeComboBox2()
@@ -1164,9 +1237,134 @@ Public Class Form1
     'combobox2の選択変更イベント　work01の作業番号
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
 
+        If ComboBox2.SelectedIndex >= 0 Then
+            Dim selectedWorkNo As String = ComboBox2.SelectedItem.ToString()
+
+
+            ' 作業データをc1flexgrid4に表示する
+            DisplayWorkDataInGrid3(selectedWorkNo)
+            'c1flexgrid3に過去の作業結果を表示する
+
+
+            LoadPastWorkData2(selectedWorkNo)
+            'c2flexgrid1に過去の作業結果を表示する
+            DisplayWorkDataInGrid4K(selectedWorkNo)
+
+
+
+
+
+        Else
+            MessageBox.Show("作業番号を選択してください。", "確認", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        End If
 
 
     End Sub
+
+    'c1flexgrid2にtemp_work02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid3(workno As String)
+        Try
+            Dim sql = "SELECT xp, yp, dno FROM temp_work02 WHERE workno=@workno ORDER BY xp, yp;"
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    Dim rowIndex As Integer = 1
+                    While reader.Read()
+                        C1FlexGrid2.Rows.Add()
+                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        rowIndex += 1
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
+    'c1flexgrid2にwork02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid4K(workno As String)
+        Try
+            Dim sql = "SELECT xp, yp, dno FROM work02 WHERE workno=@workno ORDER BY xp, yp;"
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    Dim rowIndex As Integer = 1
+                    While reader.Read()
+                        C1FlexGrid2.Rows.Add()
+                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        rowIndex += 1
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
+
+    ' 過去の作業結果をグリッドへ反映する
+    Private Sub LoadPastWorkData2(workno As String)
+        Try
+            ClearWorkCells()
+
+            Dim sql As String =
+            "SELECT xp, yp, dno " &
+            "FROM work02 " &
+            "WHERE workno = @workno " &
+            "ORDER BY workdate, xp, yp;"
+
+            Using cn As New NpgsqlConnection(cn1.ConnectionString),
+              cmd As New NpgsqlCommand(sql, cn)
+
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+
+                Using rs As NpgsqlDataReader = cmd.ExecuteReader()
+                    While rs.Read()
+                        Dim xp As Integer = Convert.ToInt32(rs("xp"))
+                        Dim yp As Integer = Convert.ToInt32(rs("yp"))
+                        Dim dno As Integer = Convert.ToInt32(rs("dno"))
+
+                        If yp > 0 AndAlso yp <= GRID_SIZE AndAlso xp >= 0 AndAlso xp <= GRID_SIZE Then
+                            ApplyWorkStyleFromDno(yp, xp, dno)
+                        End If
+                    End While
+                End Using
+            End Using
+
+        Catch ex As Exception
+            WriteErrorLog("LoadPastWorkData", ex.Message)
+            MessageBox.Show("過去の作業結果の表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

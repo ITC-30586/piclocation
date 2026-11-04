@@ -42,23 +42,23 @@ Partial Class Form1
         Me.Button1 = New System.Windows.Forms.Button()
         Me.C1FlexGrid1 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.TabPage2 = New System.Windows.Forms.TabPage()
-        Me.C1FlexGrid3 = New C1.Win.C1FlexGrid.C1FlexGrid()
-        Me.Label7 = New System.Windows.Forms.Label()
-        Me.ComboBox2 = New System.Windows.Forms.ComboBox()
-        Me.SerialPort1 = New System.IO.Ports.SerialPort(Me.components)
-        Me.Button3 = New System.Windows.Forms.Button()
+        Me.C1FlexGrid4 = New C1.Win.C1FlexGrid.C1FlexGrid()
         Me.TextBox5 = New System.Windows.Forms.TextBox()
         Me.Label8 = New System.Windows.Forms.Label()
         Me.Label9 = New System.Windows.Forms.Label()
         Me.TextBox6 = New System.Windows.Forms.TextBox()
-        Me.C1FlexGrid4 = New C1.Win.C1FlexGrid.C1FlexGrid()
+        Me.Button3 = New System.Windows.Forms.Button()
+        Me.C1FlexGrid3 = New C1.Win.C1FlexGrid.C1FlexGrid()
+        Me.Label7 = New System.Windows.Forms.Label()
+        Me.ComboBox2 = New System.Windows.Forms.ComboBox()
+        Me.SerialPort1 = New System.IO.Ports.SerialPort(Me.components)
         Me.TabControl1.SuspendLayout()
         Me.TabPage1.SuspendLayout()
         CType(Me.C1FlexGrid2, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.C1FlexGrid1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.TabPage2.SuspendLayout()
-        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.C1FlexGrid4, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'TabControl1
@@ -91,7 +91,7 @@ Partial Class Form1
         Me.TabPage1.Controls.Add(Me.C1FlexGrid1)
         Me.TabPage1.Location = New System.Drawing.Point(4, 22)
         Me.TabPage1.Name = "TabPage1"
-        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3)
+        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3, 3, 3, 3)
         Me.TabPage1.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage1.TabIndex = 0
         Me.TabPage1.Text = "作業"
@@ -142,7 +142,7 @@ Partial Class Form1
         '
         Me.Label4.AutoSize = True
         Me.Label4.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label4.Location = New System.Drawing.Point(1635, 548)
+        Me.Label4.Location = New System.Drawing.Point(1634, 477)
         Me.Label4.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(66, 19)
@@ -153,17 +153,17 @@ Partial Class Form1
         'C1FlexGrid2
         '
         Me.C1FlexGrid2.ColumnInfo = "10,1,0,0,0,-1,Columns:"
-        Me.C1FlexGrid2.Location = New System.Drawing.Point(1579, 647)
-        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2)
+        Me.C1FlexGrid2.Location = New System.Drawing.Point(1579, 565)
+        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
         Me.C1FlexGrid2.Name = "C1FlexGrid2"
-        Me.C1FlexGrid2.Size = New System.Drawing.Size(237, 221)
+        Me.C1FlexGrid2.Size = New System.Drawing.Size(237, 290)
         Me.C1FlexGrid2.TabIndex = 11
         '
         'Label3
         '
         Me.Label3.AutoSize = True
         Me.Label3.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label3.Location = New System.Drawing.Point(1714, 548)
+        Me.Label3.Location = New System.Drawing.Point(1713, 477)
         Me.Label3.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(47, 19)
@@ -175,7 +175,7 @@ Partial Class Form1
         '
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label2.Location = New System.Drawing.Point(1657, 471)
+        Me.Label2.Location = New System.Drawing.Point(1656, 400)
         Me.Label2.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(104, 19)
@@ -207,7 +207,7 @@ Partial Class Form1
         'TextBox2
         '
         Me.TextBox2.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.TextBox2.Location = New System.Drawing.Point(1578, 585)
+        Me.TextBox2.Location = New System.Drawing.Point(1577, 514)
         Me.TextBox2.Name = "TextBox2"
         Me.TextBox2.Size = New System.Drawing.Size(237, 29)
         Me.TextBox2.TabIndex = 6
@@ -217,7 +217,7 @@ Partial Class Form1
         '
         Me.ComboBox1.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
         Me.ComboBox1.FormattingEnabled = True
-        Me.ComboBox1.Location = New System.Drawing.Point(1579, 502)
+        Me.ComboBox1.Location = New System.Drawing.Point(1578, 431)
         Me.ComboBox1.Name = "ComboBox1"
         Me.ComboBox1.Size = New System.Drawing.Size(237, 29)
         Me.ComboBox1.TabIndex = 5
@@ -235,7 +235,7 @@ Partial Class Form1
         '
         'Button1
         '
-        Me.Button1.Location = New System.Drawing.Point(1579, 873)
+        Me.Button1.Location = New System.Drawing.Point(1580, 873)
         Me.Button1.Name = "Button1"
         Me.Button1.Size = New System.Drawing.Size(236, 41)
         Me.Button1.TabIndex = 3
@@ -263,50 +263,21 @@ Partial Class Form1
         Me.TabPage2.Controls.Add(Me.Label7)
         Me.TabPage2.Controls.Add(Me.ComboBox2)
         Me.TabPage2.Location = New System.Drawing.Point(4, 22)
-        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2)
+        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
         Me.TabPage2.Name = "TabPage2"
-        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2)
+        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2, 2, 2, 2)
         Me.TabPage2.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage2.TabIndex = 1
         Me.TabPage2.Text = "作業履歴"
         '
-        'C1FlexGrid3
+        'C1FlexGrid4
         '
-        Me.C1FlexGrid3.ColumnInfo = "10,1,0,0,0,-1,Columns:"
-        Me.C1FlexGrid3.Location = New System.Drawing.Point(355, 36)
-        Me.C1FlexGrid3.Name = "C1FlexGrid3"
-        Me.C1FlexGrid3.Size = New System.Drawing.Size(1504, 907)
-        Me.C1FlexGrid3.TabIndex = 11
-        '
-        'Label7
-        '
-        Me.Label7.AutoSize = True
-        Me.Label7.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label7.Location = New System.Drawing.Point(83, 36)
-        Me.Label7.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
-        Me.Label7.Name = "Label7"
-        Me.Label7.Size = New System.Drawing.Size(85, 19)
-        Me.Label7.TabIndex = 10
-        Me.Label7.Text = "作業番号"
-        Me.Label7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-        '
-        'ComboBox2
-        '
-        Me.ComboBox2.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.ComboBox2.FormattingEnabled = True
-        Me.ComboBox2.Location = New System.Drawing.Point(23, 67)
-        Me.ComboBox2.Name = "ComboBox2"
-        Me.ComboBox2.Size = New System.Drawing.Size(237, 29)
-        Me.ComboBox2.TabIndex = 6
-        '
-        'Button3
-        '
-        Me.Button3.Location = New System.Drawing.Point(24, 133)
-        Me.Button3.Name = "Button3"
-        Me.Button3.Size = New System.Drawing.Size(236, 41)
-        Me.Button3.TabIndex = 12
-        Me.Button3.Text = "作業番号選択"
-        Me.Button3.UseVisualStyleBackColor = True
+        Me.C1FlexGrid4.ColumnInfo = "10,1,0,0,0,-1,Columns:"
+        Me.C1FlexGrid4.Location = New System.Drawing.Point(24, 423)
+        Me.C1FlexGrid4.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.C1FlexGrid4.Name = "C1FlexGrid4"
+        Me.C1FlexGrid4.Size = New System.Drawing.Size(237, 325)
+        Me.C1FlexGrid4.TabIndex = 22
         '
         'TextBox5
         '
@@ -350,14 +321,43 @@ Partial Class Form1
         Me.TextBox6.TabIndex = 17
         Me.TextBox6.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
         '
-        'C1FlexGrid4
+        'Button3
         '
-        Me.C1FlexGrid4.ColumnInfo = "10,1,0,0,0,-1,Columns:"
-        Me.C1FlexGrid4.Location = New System.Drawing.Point(24, 423)
-        Me.C1FlexGrid4.Margin = New System.Windows.Forms.Padding(2)
-        Me.C1FlexGrid4.Name = "C1FlexGrid4"
-        Me.C1FlexGrid4.Size = New System.Drawing.Size(237, 325)
-        Me.C1FlexGrid4.TabIndex = 22
+        Me.Button3.Location = New System.Drawing.Point(24, 133)
+        Me.Button3.Name = "Button3"
+        Me.Button3.Size = New System.Drawing.Size(236, 41)
+        Me.Button3.TabIndex = 12
+        Me.Button3.Text = "作業番号選択"
+        Me.Button3.UseVisualStyleBackColor = True
+        '
+        'C1FlexGrid3
+        '
+        Me.C1FlexGrid3.ColumnInfo = "10,1,0,0,0,-1,Columns:"
+        Me.C1FlexGrid3.Location = New System.Drawing.Point(329, 36)
+        Me.C1FlexGrid3.Name = "C1FlexGrid3"
+        Me.C1FlexGrid3.Size = New System.Drawing.Size(1504, 907)
+        Me.C1FlexGrid3.TabIndex = 11
+        '
+        'Label7
+        '
+        Me.Label7.AutoSize = True
+        Me.Label7.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.Label7.Location = New System.Drawing.Point(83, 36)
+        Me.Label7.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
+        Me.Label7.Name = "Label7"
+        Me.Label7.Size = New System.Drawing.Size(85, 19)
+        Me.Label7.TabIndex = 10
+        Me.Label7.Text = "作業番号"
+        Me.Label7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        '
+        'ComboBox2
+        '
+        Me.ComboBox2.Font = New System.Drawing.Font("MS UI Gothic", 16.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
+        Me.ComboBox2.FormattingEnabled = True
+        Me.ComboBox2.Location = New System.Drawing.Point(23, 67)
+        Me.ComboBox2.Name = "ComboBox2"
+        Me.ComboBox2.Size = New System.Drawing.Size(237, 29)
+        Me.ComboBox2.TabIndex = 6
         '
         'Form1
         '
@@ -376,8 +376,8 @@ Partial Class Form1
         CType(Me.C1FlexGrid1, System.ComponentModel.ISupportInitialize).EndInit()
         Me.TabPage2.ResumeLayout(False)
         Me.TabPage2.PerformLayout()
-        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.C1FlexGrid4, System.ComponentModel.ISupportInitialize).EndInit()
+        CType(Me.C1FlexGrid3, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
 
     End Sub
