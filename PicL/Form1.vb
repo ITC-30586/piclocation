@@ -278,7 +278,6 @@ Public Class Form1
         End Try
     End Sub
 
-
     Private Sub TabControl1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles TabControl1.SelectedIndexChanged
         Select Case TabControl1.SelectedIndex
             Case 0
@@ -295,17 +294,6 @@ Public Class Form1
                 'End If
         End Select
     End Sub
-
-
-
-
-
-
-
-
-
-
-
 
     ' 起動時画面設定
     Private Sub InitializeForm()
@@ -400,7 +388,6 @@ Public Class Form1
             Throw
         End Try
     End Sub
-
 
     ' 背景画像読み込み
     Private Sub LoadBackgroundImage()
@@ -507,7 +494,6 @@ Public Class Form1
         End Try
     End Sub
 
-
     '新規作業データ表示　c1flexgrid2にtemp_work02の作業データを表示する
     Private Sub DisplayWorkDataInGrid2_S(PicHinban As String)
         Try
@@ -553,7 +539,6 @@ Public Class Form1
             WriteErrorLog("DisplayWorkDataInGrid2_S", ex.Message)
         End Try
     End Sub
-
 
 
     'c1flexgrid2にtemp_work02の作業データを表示する
@@ -1126,11 +1111,11 @@ Public Class Form1
             C1FlexGrid3.Clear()
 
             ' 背景画像設定
-            'LoadBackgroundImage()
+            LoadBackgroundImage3()
 
             ' グリッド設定
-            'ConfigureGridAppearance3()
-            'ConfigureGridSize3()
+            ConfigureGridAppearance3()
+            ConfigureGridSize3()
 
             C1FlexGrid3.Visible = True
             C1FlexGrid3.Select(-1, -1, True)
@@ -1149,9 +1134,14 @@ Public Class Form1
 
 
 
+
+
+
         If e.TabPage Is TabPage2 Then
             ' 2番目のタブが選択
             InitializeGrid3()
+
+
 
 
 
@@ -1172,7 +1162,15 @@ Public Class Form1
 
     End Sub
 
-
+    ' 背景画像読み込み
+    Private Sub LoadBackgroundImage3()
+        Dim imagePath As String = System.IO.Path.Combine(Application.StartupPath, "default.png")
+        'Dim imagePath As String = System.IO.Path.Combine(Application.StartupPath, "Sample.png")
+        If System.IO.File.Exists(imagePath) Then
+            C1FlexGrid3.BackgroundImage = Image.FromFile(imagePath)
+            C1FlexGrid3.BackgroundImageLayout = ImageLayout.Stretch
+        End If
+    End Sub
 
     ' グリッド外観設定
     Private Sub ConfigureGridAppearance3()
@@ -1180,14 +1178,14 @@ Public Class Form1
         C1FlexGrid3.Rows(0).Visible = False
 
         ' 罫線設定
-        With C1FlexGrid1.Styles.Normal.Border
+        With C1FlexGrid3.Styles.Normal.Border
             .Color = System.Drawing.Color.Gray
             .Style = BorderStyleEnum.Dotted
             .Width = 1
         End With
 
         ' フォーカス罫線設定
-        With C1FlexGrid1.Styles.Focus.Border
+        With C1FlexGrid3.Styles.Focus.Border
             .Color = System.Drawing.Color.Red
             .Style = BorderStyleEnum.Double
         End With
@@ -1210,7 +1208,6 @@ Public Class Form1
             Next
         End With
     End Sub
-
 
     'Combobox2 work01の作業番号を表示する worknoの一覧を表示する
     Private Sub InitializeComboBox2()
@@ -1246,7 +1243,7 @@ Public Class Form1
             'c1flexgrid3に過去の作業結果を表示する
 
 
-            LoadPastWorkData2(selectedWorkNo)
+            LoadPastWorkData3(selectedWorkNo)
             'c2flexgrid1に過去の作業結果を表示する
             DisplayWorkDataInGrid4K(selectedWorkNo)
 
@@ -1261,7 +1258,7 @@ Public Class Form1
 
     End Sub
 
-    'c1flexgrid2にtemp_work02の作業データを表示する
+    'c1flexgrid3にwork02の作業データを表示する
     Private Sub DisplayWorkDataInGrid3(workno As String)
         Try
             Dim sql = "SELECT xp, yp, dno FROM temp_work02 WHERE workno=@workno ORDER BY xp, yp;"
@@ -1270,26 +1267,26 @@ Public Class Form1
                 cmd.Parameters.AddWithValue("@workno", workno)
                 cn.Open()
                 Using reader As NpgsqlDataReader = cmd.ExecuteReader()
-                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    C1FlexGrid3.Rows.Count = 1 ' ヘッダー行のみ残す
                     Dim rowIndex As Integer = 1
                     While reader.Read()
-                        C1FlexGrid2.Rows.Add()
-                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
-                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
-                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
-                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        C1FlexGrid3.Rows.Add()
+                        C1FlexGrid3.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid3.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid3.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid3.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
                         rowIndex += 1
                     End While
                 End Using
                 cn.Close()
             End Using
         Catch ex As Exception
-            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            WriteErrorLog("DisplayWorkDataInGrid3", ex.Message)
             MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
         End Try
     End Sub
 
-    'c1flexgrid2にwork02の作業データを表示する
+    'c1flexgrid4にwork02の作業データを表示する
     Private Sub DisplayWorkDataInGrid4K(workno As String)
         Try
             Dim sql = "SELECT xp, yp, dno FROM work02 WHERE workno=@workno ORDER BY xp, yp;"
@@ -1298,28 +1295,28 @@ Public Class Form1
                 cmd.Parameters.AddWithValue("@workno", workno)
                 cn.Open()
                 Using reader As NpgsqlDataReader = cmd.ExecuteReader()
-                    C1FlexGrid2.Rows.Count = 1 ' ヘッダー行のみ残す
+                    C1FlexGrid4.Rows.Count = 1 ' ヘッダー行のみ残す
                     Dim rowIndex As Integer = 1
                     While reader.Read()
-                        C1FlexGrid2.Rows.Add()
-                        C1FlexGrid2.SetData(rowIndex, 0, rowIndex) ' NO
-                        C1FlexGrid2.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
-                        C1FlexGrid2.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
-                        C1FlexGrid2.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        C1FlexGrid4.Rows.Add()
+                        C1FlexGrid4.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid4.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid4.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid4.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
                         rowIndex += 1
                     End While
                 End Using
                 cn.Close()
             End Using
         Catch ex As Exception
-            WriteErrorLog("DisplayWorkDataInGrid2", ex.Message)
+            WriteErrorLog("DisplayWorkDataInGrid4K", ex.Message)
             MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
         End Try
     End Sub
 
 
     ' 過去の作業結果をグリッドへ反映する
-    Private Sub LoadPastWorkData2(workno As String)
+    Private Sub LoadPastWorkData3(workno As String)
         Try
             ClearWorkCells()
 
@@ -1353,6 +1350,80 @@ Public Class Form1
             MessageBox.Show("過去の作業結果の表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
+
+    Private Sub ComboBox2_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox2.SelectedIndexChanged
+
+        If Len(ComboBox2.Text) <> 0 Then
+            Button3.Select()
+        End If
+
+
+    End Sub
+
+
+
+    Private Sub InitializeGrid4()
+        Try
+            C1FlexGrid4.Visible = False
+            'C1FlexGrid4.Location = New Drawing.Point(2633, 553)
+            'C1FlexGrid4.Size = New Drawing.Size(393, 329)
+            C1FlexGrid4.Clear()
+
+
+            ' グリッド設定
+            '            ConfigureGridAppearance()
+            '            ConfigureGridSize()
+
+            With C1FlexGrid4
+                .Rows.Fixed = 1
+                .Cols.Fixed = 1
+
+                '右端の処理
+                .ExtendLastCol = True
+
+                'filed数
+                .Cols.Count = 4
+                .Rows.Count = 1
+
+
+                '初期表示
+                .Cols(0).Caption = "NO"
+                .Cols(1).Caption = "X座標"
+                .Cols(2).Caption = "Y座標"
+                .Cols(3).Caption = "不具合"
+
+                '表示幅
+                .Cols(0).Width = 40
+                .Cols(1).Width = 60
+                .Cols(2).Width = 60
+                .Cols(3).Width = 60
+
+                For i = 0 To 3
+                    .Cols(i).TextAlignFixed = C1.Win.C1FlexGrid.TextAlignEnum.CenterCenter
+                    .Cols(i).StyleFixed.Font = New Font("verda", 8, FontStyle.Regular)
+
+                    .Cols(i).TextAlign = C1.Win.C1FlexGrid.TextAlignEnum.CenterCenter
+                    .Cols(i).Style.Font = New Font("verda", 9, FontStyle.Regular)
+                Next
+
+            End With
+
+            C1FlexGrid4.Visible = True
+            C1FlexGrid4.Select(-1, -1, True)
+
+        Catch ex As Exception
+            WriteErrorLog("InitializeGrid4", ex.Message)
+            Throw
+        End Try
+    End Sub
+
+
+
+
+
+
+
+
 
 
 
