@@ -755,6 +755,8 @@ Public Class Form1
 
     End Sub
 
+
+
     ' 過去の作業結果をグリッドへ反映する
     Private Sub LoadPastWorkData(workno As String)
         Try
@@ -1139,8 +1141,12 @@ Public Class Form1
 
         If e.TabPage Is TabPage2 Then
             ' 2番目のタブが選択
-            InitializeGrid3()
+            '前回の値をクリアする 
 
+
+
+            InitializeGrid3()
+            InitializeGrid4()
 
 
 
@@ -1238,14 +1244,21 @@ Public Class Form1
             Dim selectedWorkNo As String = ComboBox2.SelectedItem.ToString()
 
 
+            StartWork03(ComboBox2.SelectedItem.ToString())
+
+
+
+
             ' 作業データをc1flexgrid4に表示する
-            DisplayWorkDataInGrid3(selectedWorkNo)
+            'DisplayWorkDataInGrid3(selectedWorkNo)
             'c1flexgrid3に過去の作業結果を表示する
-
-
-            LoadPastWorkData3(selectedWorkNo)
+            'LoadPastWorkData3(selectedWorkNo)
             'c2flexgrid1に過去の作業結果を表示する
-            DisplayWorkDataInGrid4K(selectedWorkNo)
+            'DisplayWorkDataInGrid4K(selectedWorkNo)
+
+
+
+
 
 
 
@@ -1258,33 +1271,57 @@ Public Class Form1
 
     End Sub
 
-    'c1flexgrid3にwork02の作業データを表示する
-    Private Sub DisplayWorkDataInGrid3(workno As String)
-        Try
-            Dim sql = "SELECT xp, yp, dno FROM temp_work02 WHERE workno=@workno ORDER BY xp, yp;"
-            Using cn As New NpgsqlConnection(cn1.ConnectionString),
-                cmd As New NpgsqlCommand(sql, cn)
-                cmd.Parameters.AddWithValue("@workno", workno)
-                cn.Open()
-                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
-                    C1FlexGrid3.Rows.Count = 1 ' ヘッダー行のみ残す
-                    Dim rowIndex As Integer = 1
-                    While reader.Read()
-                        C1FlexGrid3.Rows.Add()
-                        C1FlexGrid3.SetData(rowIndex, 0, rowIndex) ' NO
-                        C1FlexGrid3.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
-                        C1FlexGrid3.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
-                        C1FlexGrid3.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
-                        rowIndex += 1
-                    End While
-                End Using
-                cn.Close()
-            End Using
-        Catch ex As Exception
-            WriteErrorLog("DisplayWorkDataInGrid3", ex.Message)
-            MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-        End Try
+
+    Private Sub StartWork03(wn As String)
+
+        '作業番号採番　コード読み取りによるトリガー処理？　2Dコード重複チェック
+        Dim strSQL As String
+        Dim cmd As NpgsqlCommand
+        Dim rs As NpgsqlDataReader
+        Dim NH As String
+
+        '過去の作業結果表示へ
+        strSQL = ""
+        strSQL = strSQL + "SELECT * FROM work01 "
+        strSQL = strSQL + "WHERE workno = '" & wn & "';"
+        cn1.Open()
+        cmd = New NpgsqlCommand
+        cmd.Connection = cn1
+        cmd.CommandText = strSQL
+        cmd.CommandType = CommandType.Text
+        rs = cmd.ExecuteReader
+        rs.Read()
+        NH = rs(2).ToString
+        rs.Close()
+        cn1.Close()
+        '品番表示
+        TextBox6.Text = NH
+        '刻印日表示
+        TextBox5.Text = ""
+
+        'PDF表示
+        DisplayWorkDataInGrid3_S(NH)
+        DisplayWorkDataInGrid3(wn)
+
+
+        ''c1flexgrid1に過去の作業結果を表示する
+        'LoadPastWorkData(PR1)
+        ''c2flexgrid1に過去の作業結果を表示する
+        'DisplayWorkDataInGrid2K(PR1)
+
+
+
     End Sub
+
+
+
+
+
+
+
+
+
+
 
     'c1flexgrid4にwork02の作業データを表示する
     Private Sub DisplayWorkDataInGrid4K(workno As String)
@@ -1346,7 +1383,7 @@ Public Class Form1
             End Using
 
         Catch ex As Exception
-            WriteErrorLog("LoadPastWorkData", ex.Message)
+            WriteErrorLog("LoadPastWorkData3", ex.Message)
             MessageBox.Show("過去の作業結果の表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
@@ -1418,9 +1455,78 @@ Public Class Form1
     End Sub
 
 
+    '過去作業データ表示　c1flexgrid3にwork2の作業データを表示する
+    Private Sub DisplayWorkDataInGrid3_S(PicHinban As String)
+        Try
+            Dim pictureDir As String = System.IO.Path.Combine(Application.StartupPath, "picture")
+
+            If Not System.IO.Directory.Exists(pictureDir) Then
+                Exit Sub
+            End If
+
+            Dim targetFile As String = String.Empty
+            Dim exts As String() = {".jpg", ".jpeg", ".png"}
+
+            For Each ext As String In exts
+                Dim filePath As String = System.IO.Path.Combine(pictureDir, PicHinban & ext)
+                If System.IO.File.Exists(filePath) Then
+                    targetFile = filePath
+                    Exit For
+                End If
+            Next
+
+            If String.IsNullOrEmpty(targetFile) Then
+                Exit Sub
+            End If
+
+            Dim oldImage As Image = C1FlexGrid3.BackgroundImage
+
+            Using fs As New System.IO.FileStream(targetFile, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite)
+                Using img As Image = Image.FromStream(fs)
+                    C1FlexGrid3.BackgroundImage = New Bitmap(img) ' ファイルロック回避
+                End Using
+            End Using
+
+            C1FlexGrid3.BackgroundImageLayout = ImageLayout.Stretch
+
+            If oldImage IsNot Nothing Then
+                oldImage.Dispose()
+            End If
+
+        Catch ex As Exception
+            WriteErrorLog("DisplayWorkDataInGrid3_S", ex.Message)
+        End Try
+    End Sub
 
 
 
+    'c1flexgrid3にwork02の作業データを表示する
+    Private Sub DisplayWorkDataInGrid3(workno As String)
+        'Try
+        Dim sql = "SELECT xp, yp, dno FROM work02 WHERE workno=@workno ORDER BY xp, yp;"
+        Using cn As New NpgsqlConnection(cn1.ConnectionString),
+                cmd As New NpgsqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@workno", workno)
+                cn.Open()
+                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
+                    C1FlexGrid3.Rows.Count = 1 ' ヘッダー行のみ残す
+                    Dim rowIndex As Integer = 1
+                    While reader.Read()
+                        C1FlexGrid3.Rows.Add()
+                        C1FlexGrid3.SetData(rowIndex, 0, rowIndex) ' NO
+                        C1FlexGrid3.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
+                        C1FlexGrid3.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
+                        C1FlexGrid3.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
+                        rowIndex += 1
+                    End While
+                End Using
+                cn.Close()
+            End Using
+        'Catch ex As Exception
+        'WriteErrorLog("DisplayWorkDataInGrid3", ex.Message)
+        'MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        'End Try
+    End Sub
 
 
 
