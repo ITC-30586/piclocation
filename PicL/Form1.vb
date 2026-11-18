@@ -1300,14 +1300,14 @@ Public Class Form1
         TextBox5.Text = ""
 
         'PDF表示
-        DisplayWorkDataInGrid3_S(NH)
-        DisplayWorkDataInGrid3(wn)
+        'DisplayWorkDataInGrid3_S(NH)
+        'DisplayWorkDataInGrid3(wn)
 
 
         ''c1flexgrid1に過去の作業結果を表示する
-        'LoadPastWorkData(PR1)
+        'LoadPastWorkData3(PR1)
         ''c2flexgrid1に過去の作業結果を表示する
-        'DisplayWorkDataInGrid2K(PR1)
+        'DisplayWorkDataInGrid4K(PR1)
 
 
 
