@@ -2,14 +2,14 @@
 '
 '
 Imports System.IO.Ports
-Imports System.Management
-Imports System.Reflection.Emit
-Imports System.Windows.Forms.VisualStyles.VisualStyleElement
-Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ToolBar
-Imports C1.Framework.Extension
-Imports C1.Util.Win.Win32
+'Imports System.Management
+'Imports System.Reflection.Emit
+'Imports System.Windows.Forms.VisualStyles.VisualStyleElement
+'Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ToolBar
+'Imports C1.Framework.Extension
+'Imports C1.Util.Win.Win32
 Imports C1.Win.C1FlexGrid
-Imports C1.Win.TouchToolKit
+'Imports C1.Win.TouchToolKit
 Imports Npgsql
 Imports System.Text
 
@@ -120,11 +120,6 @@ Public Class Form1
         End Function
     End Structure
 
-
-
-
-
-
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles Me.Load
         Try
             ' 2重起動防止
@@ -144,7 +139,6 @@ Public Class Form1
             InitializeGrid()
             InitializeGrid2()
             InitializeCellStyles()
-
 
             'InitializeGrid3()
 
@@ -597,12 +591,6 @@ Public Class Form1
         End Try
     End Sub
 
-
-
-
-
-
-
     ' セルスタイル適用
     Private Sub ApplyCellStyle(rowIndex As Integer, colIndex As Integer, comboIndex As Integer)
         Select Case comboIndex
@@ -755,8 +743,6 @@ Public Class Form1
 
     End Sub
 
-
-
     ' 過去の作業結果をグリッドへ反映する
     Private Sub LoadPastWorkData(workno As String)
         Try
@@ -819,9 +805,6 @@ Public Class Form1
         Next
     End Sub
 
-
-
-
     '作業登録
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         'temp_work02の作業データをwork02へ登録する
@@ -862,9 +845,6 @@ Public Class Form1
         End Using
 
     End Sub
-
-
-
 
     '作業中データベース登録処理　作業番号、作業位置、作業内容を登録する　temp_work02
     Private Sub InsertWorkData(workno As String, xp As Integer, yp As Integer, dno As Integer)
@@ -908,8 +888,6 @@ Public Class Form1
             cn.Close()
         End Using
     End Sub
-
-
 
     ' シリアルポートオープン
     Private Function OpenQrPort() As Boolean
@@ -978,15 +956,12 @@ Public Class Form1
                                    TextBox3.Text = parts.Hinban
                                    TextBox4.Text = "20" & parts.Kyear & "/" & parts.Kmonth & "/" & parts.Kday
 
-
                                    'DEMO用を参考に、rawを引数としてStartWork01を呼び出す
                                    StartWork01(parts)
-
 
                                End Sub)
 
             End If
-
 
         Catch
         End Try
@@ -1017,9 +992,6 @@ Public Class Form1
             WriteErrorLog("CloseQrPort", ex.Message)
         End Try
     End Sub
-
-
-
 
     Private Sub StartWork01(parts As QrCodeParts)
 
@@ -1103,7 +1075,6 @@ Public Class Form1
 
     '---------------------------------------------------------------------------------------------------------------
     'tab2
-
     ' グリッド初期化 (旧:Init_C1FG01)
     Private Sub InitializeGrid3()
         Try
@@ -1128,43 +1099,26 @@ Public Class Form1
     End Sub
 
     Private Sub TabControl1_Selecting(sender As Object, e As TabControlCancelEventArgs) Handles TabControl1.Selecting
-        '' 例: 作業番号がない場合は2番目タブへの遷移を禁止
-        'If e.TabPage Is TabPage2 AndAlso String.IsNullOrWhiteSpace(TextBox1.Text) Then
-        '    MessageBox.Show("先にQRコードを読み取ってください。", "確認", MessageBoxButtons.OK, MessageBoxIcon.Information)
-        '    e.Cancel = True
-        'End If
-
-
-
-
-
 
         If e.TabPage Is TabPage2 Then
             ' 2番目のタブが選択
-            '前回の値をクリアする 
-
-
+            ComboBox2.SelectedIndex = -1
+            TextBox5.Text = ""
+            TextBox6.Text = ""
 
             InitializeGrid3()
             InitializeGrid4()
 
+        ElseIf e.TabPage Is TabPage1 Then
 
-
-
+            InitializeGrid2()
 
         Else
             ' それ以外のタブが選択された場合の処理（必要に応じて追加）
 
+
+
         End If
-
-
-
-
-
-
-
-
-
 
     End Sub
 
@@ -1243,27 +1197,7 @@ Public Class Form1
         If ComboBox2.SelectedIndex >= 0 Then
             Dim selectedWorkNo As String = ComboBox2.SelectedItem.ToString()
 
-
             StartWork03(ComboBox2.SelectedItem.ToString())
-
-
-
-
-            ' 作業データをc1flexgrid4に表示する
-            'DisplayWorkDataInGrid3(selectedWorkNo)
-            'c1flexgrid3に過去の作業結果を表示する
-            'LoadPastWorkData3(selectedWorkNo)
-            'c2flexgrid1に過去の作業結果を表示する
-            'DisplayWorkDataInGrid4K(selectedWorkNo)
-
-
-
-
-
-
-
-
-
         Else
             MessageBox.Show("作業番号を選択してください。", "確認", MessageBoxButtons.OK, MessageBoxIcon.Information)
         End If
@@ -1278,7 +1212,10 @@ Public Class Form1
         Dim strSQL As String
         Dim cmd As NpgsqlCommand
         Dim rs As NpgsqlDataReader
-        Dim NH As String
+        Dim NH As String            '品番情報
+        Dim NY As String            '刻印年
+        Dim NM As String            '刻印月
+        Dim ND As String            '刻印日
 
         '過去の作業結果表示へ
         strSQL = ""
@@ -1292,35 +1229,27 @@ Public Class Form1
         rs = cmd.ExecuteReader
         rs.Read()
         NH = rs(2).ToString
+
+        NY = rs(5).ToString
+        NM = rs(6).ToString
+        ND = rs(7).ToString
+
         rs.Close()
         cn1.Close()
         '品番表示
         TextBox6.Text = NH
         '刻印日表示
-        TextBox5.Text = ""
+        TextBox5.Text = NY & "/" & NM & "/" & ND    '変換が必要
 
         'PDF表示
-        'DisplayWorkDataInGrid3_S(NH)
-        'DisplayWorkDataInGrid3(wn)
-
-
-        ''c1flexgrid1に過去の作業結果を表示する
-        'LoadPastWorkData3(PR1)
-        ''c2flexgrid1に過去の作業結果を表示する
-        'DisplayWorkDataInGrid4K(PR1)
-
+        DisplayWorkDataInGrid3_S(NH)
+        'c1flexgrid3に過去の作業結果を表示する
+        LoadPastWorkData3(wn)
+        'c2flexgrid1に過去の作業結果を表示する
+        DisplayWorkDataInGrid4K(wn)
 
 
     End Sub
-
-
-
-
-
-
-
-
-
 
 
     'c1flexgrid4にwork02の作業データを表示する
@@ -1351,7 +1280,6 @@ Public Class Form1
         End Try
     End Sub
 
-
     ' 過去の作業結果をグリッドへ反映する
     Private Sub LoadPastWorkData3(workno As String)
         Try
@@ -1376,7 +1304,7 @@ Public Class Form1
                         Dim dno As Integer = Convert.ToInt32(rs("dno"))
 
                         If yp > 0 AndAlso yp <= GRID_SIZE AndAlso xp >= 0 AndAlso xp <= GRID_SIZE Then
-                            ApplyWorkStyleFromDno(yp, xp, dno)
+                            ApplyWorkStyleFromDno3(yp, xp, dno)
                         End If
                     End While
                 End Using
@@ -1397,19 +1325,10 @@ Public Class Form1
 
     End Sub
 
-
-
     Private Sub InitializeGrid4()
         Try
             C1FlexGrid4.Visible = False
-            'C1FlexGrid4.Location = New Drawing.Point(2633, 553)
-            'C1FlexGrid4.Size = New Drawing.Size(393, 329)
             C1FlexGrid4.Clear()
-
-
-            ' グリッド設定
-            '            ConfigureGridAppearance()
-            '            ConfigureGridSize()
 
             With C1FlexGrid4
                 .Rows.Fixed = 1
@@ -1454,7 +1373,6 @@ Public Class Form1
         End Try
     End Sub
 
-
     '過去作業データ表示　c1flexgrid3にwork2の作業データを表示する
     Private Sub DisplayWorkDataInGrid3_S(PicHinban As String)
         Try
@@ -1498,36 +1416,45 @@ Public Class Form1
         End Try
     End Sub
 
-
-
-    'c1flexgrid3にwork02の作業データを表示する
-    Private Sub DisplayWorkDataInGrid3(workno As String)
-        'Try
-        Dim sql = "SELECT xp, yp, dno FROM work02 WHERE workno=@workno ORDER BY xp, yp;"
-        Using cn As New NpgsqlConnection(cn1.ConnectionString),
-                cmd As New NpgsqlCommand(sql, cn)
-                cmd.Parameters.AddWithValue("@workno", workno)
-                cn.Open()
-                Using reader As NpgsqlDataReader = cmd.ExecuteReader()
-                    C1FlexGrid3.Rows.Count = 1 ' ヘッダー行のみ残す
-                    Dim rowIndex As Integer = 1
-                    While reader.Read()
-                        C1FlexGrid3.Rows.Add()
-                        C1FlexGrid3.SetData(rowIndex, 0, rowIndex) ' NO
-                        C1FlexGrid3.SetData(rowIndex, 1, reader.GetInt32(0)) ' X座標
-                        C1FlexGrid3.SetData(rowIndex, 2, reader.GetInt32(1)) ' Y座標
-                        C1FlexGrid3.SetData(rowIndex, 3, reader.GetInt32(2)) ' 不具合番号
-                        rowIndex += 1
-                    End While
-                End Using
-                cn.Close()
-            End Using
-        'Catch ex As Exception
-        'WriteErrorLog("DisplayWorkDataInGrid3", ex.Message)
-        'MessageBox.Show("作業データ表示中にエラーが発生しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-        'End Try
+    Private Sub ApplyWorkStyleFromDno3(rowIndex As Integer, colIndex As Integer, dno As Integer)
+        Select Case dno
+            Case 1
+                ApplyCellStyle3(rowIndex, colIndex, COMBO_INDEX_STYLE1)
+            Case 2
+                ApplyCellStyle3(rowIndex, colIndex, COMBO_INDEX_STYLE2)
+            Case 3
+                ApplyCellStyle3(rowIndex, colIndex, COMBO_INDEX_STYLE3)
+            Case 4
+                ApplyCellStyle3(rowIndex, colIndex, COMBO_INDEX_STYLE4)
+            Case 5
+                ApplyCellStyle3(rowIndex, colIndex, COMBO_INDEX_STYLE5)
+            Case Else
+                C1FlexGrid3.SetData(rowIndex, colIndex, "")
+        End Select
     End Sub
 
+    ' セルスタイル適用
+    Private Sub ApplyCellStyle3(rowIndex As Integer, colIndex As Integer, comboIndex As Integer)
+        Select Case comboIndex
+            Case COMBO_INDEX_CLEAR
+                C1FlexGrid3.SetData(rowIndex, colIndex, "")
+            Case COMBO_INDEX_STYLE1
+                C1FlexGrid3.SetCellStyle(rowIndex, colIndex, styleNS1)
+                C1FlexGrid3.SetData(rowIndex, colIndex, "●")
+            Case COMBO_INDEX_STYLE2
+                C1FlexGrid3.SetCellStyle(rowIndex, colIndex, styleNS2)
+                C1FlexGrid3.SetData(rowIndex, colIndex, "◆")
+            Case COMBO_INDEX_STYLE3
+                C1FlexGrid3.SetCellStyle(rowIndex, colIndex, styleNS3)
+                C1FlexGrid3.SetData(rowIndex, colIndex, "■")
+            Case COMBO_INDEX_STYLE4
+                C1FlexGrid3.SetCellStyle(rowIndex, colIndex, styleNS4)
+                C1FlexGrid3.SetData(rowIndex, colIndex, "▲")
+            Case COMBO_INDEX_STYLE5
+                C1FlexGrid3.SetCellStyle(rowIndex, colIndex, styleNS5)
+                C1FlexGrid3.SetData(rowIndex, colIndex, "▼")
+        End Select
+    End Sub
 
 
 

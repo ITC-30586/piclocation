@@ -91,7 +91,7 @@ Partial Class Form1
         Me.TabPage1.Controls.Add(Me.C1FlexGrid1)
         Me.TabPage1.Location = New System.Drawing.Point(4, 22)
         Me.TabPage1.Name = "TabPage1"
-        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3, 3, 3, 3)
+        Me.TabPage1.Padding = New System.Windows.Forms.Padding(3)
         Me.TabPage1.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage1.TabIndex = 0
         Me.TabPage1.Text = "作業"
@@ -109,7 +109,7 @@ Partial Class Form1
         '
         Me.Label6.AutoSize = True
         Me.Label6.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label6.Location = New System.Drawing.Point(1678, 280)
+        Me.Label6.Location = New System.Drawing.Point(1666, 280)
         Me.Label6.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label6.Name = "Label6"
         Me.Label6.Size = New System.Drawing.Size(66, 19)
@@ -121,7 +121,7 @@ Partial Class Form1
         '
         Me.Label5.AutoSize = True
         Me.Label5.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label5.Location = New System.Drawing.Point(1678, 206)
+        Me.Label5.Location = New System.Drawing.Point(1666, 206)
         Me.Label5.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label5.Name = "Label5"
         Me.Label5.Size = New System.Drawing.Size(47, 19)
@@ -154,7 +154,7 @@ Partial Class Form1
         '
         Me.C1FlexGrid2.ColumnInfo = "10,1,0,0,0,-1,Columns:"
         Me.C1FlexGrid2.Location = New System.Drawing.Point(1579, 565)
-        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.C1FlexGrid2.Margin = New System.Windows.Forms.Padding(2)
         Me.C1FlexGrid2.Name = "C1FlexGrid2"
         Me.C1FlexGrid2.Size = New System.Drawing.Size(237, 290)
         Me.C1FlexGrid2.TabIndex = 11
@@ -175,7 +175,7 @@ Partial Class Form1
         '
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("MS UI Gothic", 13.8!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(128, Byte))
-        Me.Label2.Location = New System.Drawing.Point(1656, 400)
+        Me.Label2.Location = New System.Drawing.Point(1647, 400)
         Me.Label2.Margin = New System.Windows.Forms.Padding(2, 0, 2, 0)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(104, 19)
@@ -263,9 +263,9 @@ Partial Class Form1
         Me.TabPage2.Controls.Add(Me.Label7)
         Me.TabPage2.Controls.Add(Me.ComboBox2)
         Me.TabPage2.Location = New System.Drawing.Point(4, 22)
-        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.TabPage2.Margin = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Name = "TabPage2"
-        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.TabPage2.Padding = New System.Windows.Forms.Padding(2)
         Me.TabPage2.Size = New System.Drawing.Size(1898, 967)
         Me.TabPage2.TabIndex = 1
         Me.TabPage2.Text = "作業履歴"
@@ -274,7 +274,7 @@ Partial Class Form1
         '
         Me.C1FlexGrid4.ColumnInfo = "10,1,0,0,0,-1,Columns:"
         Me.C1FlexGrid4.Location = New System.Drawing.Point(24, 423)
-        Me.C1FlexGrid4.Margin = New System.Windows.Forms.Padding(2, 2, 2, 2)
+        Me.C1FlexGrid4.Margin = New System.Windows.Forms.Padding(2)
         Me.C1FlexGrid4.Name = "C1FlexGrid4"
         Me.C1FlexGrid4.Size = New System.Drawing.Size(237, 325)
         Me.C1FlexGrid4.TabIndex = 22
