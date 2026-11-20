@@ -2,14 +2,7 @@
 '
 '
 Imports System.IO.Ports
-'Imports System.Management
-'Imports System.Reflection.Emit
-'Imports System.Windows.Forms.VisualStyles.VisualStyleElement
-'Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ToolBar
-'Imports C1.Framework.Extension
-'Imports C1.Util.Win.Win32
 Imports C1.Win.C1FlexGrid
-'Imports C1.Win.TouchToolKit
 Imports Npgsql
 Imports System.Text
 
